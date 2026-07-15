@@ -578,6 +578,7 @@
       <button class="quick-btn" onclick="goTo('outing')">🧾 新增一般費用</button>
       <button class="quick-btn" onclick="goTo('settlement')">⚖️ 結算狀況</button>
       <button class="quick-btn" onclick="goTo('fund')">💰 羽球基金</button>
+      <button class="quick-btn" onclick="goTo('venue')">📅 場地預約</button>
     </div>
 
     <section id="recentActivitySection" style="margin-top:16px;">
@@ -594,7 +595,7 @@
     <button class="nav-item active"><span>🏠</span>首頁</button>
     <button class="nav-item" onclick="goTo('history')"><span>🕘</span>歷史</button>
     <button class="nav-item" onclick="goTo('members')"><span>👥</span>成員</button>
-    <button class="nav-item" onclick="comingSoon('個人頁面')"><span>👤</span>我的</button>
+    <button class="nav-item" onclick="goTo('me')"><span>👤</span>我的</button>
   </div>
 </div>
 
@@ -802,6 +803,40 @@
   </main>
 </div>
 
+<div id="view-venue" class="view">
+  <header>
+    <button class="back-btn" onclick="goTo('home')">‹</button>
+    <h1>場地預約</h1>
+  </header>
+  <main>
+    <div id="venueBanner" class="banner"></div>
+
+    <section>
+      <h2>未來7天預約</h2>
+      <div id="venueList"><div class="loading">載入中…</div></div>
+    </section>
+
+    <section>
+      <h2>新增預約</h2>
+      <div class="field-row">
+        <div class="field">
+          <label>日期（MM/DD）</label>
+          <input type="text" id="venueDate" placeholder="07/20">
+        </div>
+        <div class="field">
+          <label>時段</label>
+          <input type="text" id="venueTime" placeholder="19:00-21:00">
+        </div>
+      </div>
+      <div class="field" style="margin:10px 0;">
+        <label>備註（選填）</label>
+        <input type="text" id="venueNote" placeholder="例如：樂活館搶到的場地">
+      </div>
+      <button type="button" class="primary-btn" onclick="submitVenueBooking()">新增預約</button>
+    </section>
+  </main>
+</div>
+
 <div id="view-settlement" class="view">
   <header>
     <button class="back-btn" onclick="goTo('home')">‹</button>
@@ -888,6 +923,17 @@
       <p class="hint">點一個人可以展開編輯（改名、綁定/修改 LINE ID、刪除）</p>
       <div id="membersList"><div class="loading">載入中…</div></div>
     </section>
+  </main>
+</div>
+
+<div id="view-me" class="view">
+  <header>
+    <button class="back-btn" onclick="goTo('home')">‹</button>
+    <h1>我的</h1>
+  </header>
+  <main>
+    <div id="meBanner" class="banner"></div>
+    <div id="meContent"><div class="loading">載入中…</div></div>
   </main>
 </div>
 
@@ -1201,6 +1247,8 @@
     if (viewName === 'settlement') { _quarterlySettlementPending = false; refreshSettlementList(); }
     if (viewName === 'history') switchHistoryTab('transactions');
     if (viewName === 'members') ensureMyLineProfile(refreshMembersList);
+    if (viewName === 'venue') refreshVenueList();
+    if (viewName === 'me') ensureMyLineProfile(refreshMeView);
   }
 
   function comingSoon(name) {
@@ -1526,6 +1574,86 @@
     });
   }
 
+  function refreshVenueList() {
+    var el = document.getElementById('venueList');
+    el.innerHTML = '<div class="loading">載入中…</div>';
+
+    callApi('getVenueBookings').then(function (res) {
+      if (!res.success) {
+        el.innerHTML = '<div class="loading">' + res.error + '</div>';
+        return;
+      }
+      if (res.bookings.length === 0) {
+        el.innerHTML = '<div class="loading">未來7天內沒有任何場地預約</div>';
+        return;
+      }
+      el.innerHTML = '';
+      res.bookings.forEach(function (b) {
+        var row = document.createElement('div');
+        row.className = 'history-batch-row';
+
+        var left = document.createElement('div');
+        left.innerHTML = '<div class="date">' + b.dateLabel + '（' + b.weekday + '）' + b.timeStr + '</div>' +
+          '<div class="count">' + (b.note ? b.note + '　' : '') + b.registrant + ' 登記</div>';
+
+        var delBtn = document.createElement('button');
+        delBtn.className = 'settle-btn';
+        delBtn.textContent = '刪除';
+        delBtn.onclick = function () { deleteVenueBookingAction(b.rowNumber); };
+
+        row.appendChild(left);
+        row.appendChild(delBtn);
+        el.appendChild(row);
+      });
+    }).catch(function (err) {
+      el.innerHTML = '<div class="loading">載入失敗：' + err.message + '</div>';
+    });
+  }
+
+  function submitVenueBooking() {
+    var banner = document.getElementById('venueBanner');
+    banner.className = 'banner';
+
+    var payload = {
+      dateStr: document.getElementById('venueDate').value.trim(),
+      timeStr: document.getElementById('venueTime').value.trim(),
+      note: document.getElementById('venueNote').value.trim(),
+      lineUserId: myLineUserId
+    };
+
+    callApi('addVenueBooking', payload).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      banner.className = 'banner show success';
+      banner.textContent = '✅ 已登記場地預約';
+      document.getElementById('venueDate').value = '';
+      document.getElementById('venueTime').value = '';
+      document.getElementById('venueNote').value = '';
+      refreshVenueList();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function deleteVenueBookingAction(rowNumber) {
+    var banner = document.getElementById('venueBanner');
+    callApi('deleteVenueBooking', { rowNumber: rowNumber }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      refreshVenueList();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
   function refreshSharedMemberLists() {
     callApi('getMembersList').then(function (res) {
       if (!res.success) return;
@@ -1791,6 +1919,121 @@
     });
   }
 
+  // 「我的」頁面：複用結算狀況與交易紀錄的資料，只篩出跟自己（myBoundName）有關的部分
+  function refreshMeView() {
+    var banner = document.getElementById('meBanner');
+    var content = document.getElementById('meContent');
+    banner.className = 'banner';
+
+    // myBoundName 平常由首頁的 checkMyLineBinding() 設定；但如果使用者在那個流程
+    // 還沒跑完之前就先切到這頁，這裡多補查一次，避免誤判成「尚未綁定」
+    if (!myBoundName && myLineUserId) {
+      content.innerHTML = '<div class="loading">載入中…</div>';
+      callApi('getMyBinding', { lineUserId: myLineUserId }).then(function (res) {
+        if (res.success && res.bound) myBoundName = res.name;
+        renderMeView();
+      }).catch(function () { renderMeView(); });
+      return;
+    }
+
+    renderMeView();
+  }
+
+  function renderMeView() {
+    var content = document.getElementById('meContent');
+
+    if (!myBoundName) {
+      content.innerHTML = '';
+      var prompt = document.createElement('div');
+      prompt.className = 'loading';
+      prompt.textContent = '尚未認領你的身分，請先到「成員」頁面點「這是我」完成綁定';
+      content.appendChild(prompt);
+      var btn = document.createElement('button');
+      btn.className = 'primary-btn';
+      btn.style.marginTop = '12px';
+      btn.textContent = '前往成員管理';
+      btn.onclick = function () { goTo('members'); };
+      content.appendChild(btn);
+      return;
+    }
+
+    content.innerHTML = '<div class="loading">載入中…</div>';
+
+    Promise.all([
+      callApi('getUnsettledList'),
+      callApi('getRecentActivities', { limit: 30 })
+    ]).then(function (results) {
+      var unsettled = results[0];
+      var recent = results[1];
+      content.innerHTML = '';
+
+      var meAvatar = myPictureUrl || '';
+
+      var headCard = document.createElement('div');
+      headCard.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px;';
+      headCard.appendChild(buildAvatarEl(myBoundName, meAvatar));
+      var nameEl = document.createElement('div');
+      nameEl.style.cssText = 'font-weight:700;font-size:16px;';
+      nameEl.textContent = myBoundName;
+      headCard.appendChild(nameEl);
+      content.appendChild(headCard);
+
+      if (unsettled.success) {
+        var oweItem = unsettled.owe.find(function (o) { return o.name === myBoundName; });
+        var receiveItem = unsettled.receive.find(function (r) { return r.name === myBoundName; });
+        var fundItem = unsettled.fundOwed.find(function (f) { return f.name === myBoundName; });
+
+        var summarySection = document.createElement('section');
+        var h2 = document.createElement('h2');
+        h2.textContent = '我的帳務';
+        summarySection.appendChild(h2);
+
+        if (!oweItem && !receiveItem && !fundItem) {
+          var okDiv = document.createElement('div');
+          okDiv.className = 'loading';
+          okDiv.textContent = '🎉 目前帳目已結清';
+          summarySection.appendChild(okDiv);
+        } else {
+          var card = document.createElement('div');
+          card.className = 'summary-card';
+          if (oweItem) card.appendChild(buildMeSummaryRow('我欠', oweItem.amount, 'owe'));
+          if (receiveItem) card.appendChild(buildMeSummaryRow('待收', receiveItem.amount, 'receive'));
+          if (fundItem) card.appendChild(buildMeSummaryRow('欠羽球基金', fundItem.amount, 'owe'));
+          summarySection.appendChild(card);
+        }
+        content.appendChild(summarySection);
+      }
+
+      var activitySection = document.createElement('section');
+      var h2b = document.createElement('h2');
+      h2b.textContent = '我最近參與的活動';
+      activitySection.appendChild(h2b);
+
+      var listDiv = document.createElement('div');
+      if (recent.success) {
+        var myActivities = [];
+        recent.activities.forEach(function (a) {
+          var mine = a.people.find(function (p) { return p.name === myBoundName; });
+          if (mine) {
+            myActivities.push({
+              type: a.type,
+              date: a.date,
+              activityName: a.activityName,
+              people: [mine]
+            });
+          }
+        });
+        renderTransactionList(listDiv, myActivities);
+      } else {
+        listDiv.innerHTML = '<div class="loading">' + recent.error + '</div>';
+      }
+      activitySection.appendChild(listDiv);
+      content.appendChild(activitySection);
+    }).catch(function (err) {
+      content.innerHTML = '<div class="loading">載入失敗：' + err.message + '</div>';
+    });
+  }
+
   function refreshHistoryBatchList() {
     var el = document.getElementById('historyBatchList');
     el.innerHTML = '<div class="loading">載入中…</div>';
@@ -1959,6 +2202,24 @@
     right.appendChild(btn);
     row.appendChild(left);
     row.appendChild(right);
+    return row;
+  }
+
+  // 「我的」頁面用的唯讀摘要列（不帶結清按鈕——結清動作統一在結算狀況頁處理，避免混淆）
+  function buildMeSummaryRow(label, amount, type) {
+    var row = document.createElement('div');
+    row.className = 'summary-row';
+
+    var left = document.createElement('span');
+    left.className = 'name';
+    left.textContent = label;
+
+    var amountSpan = document.createElement('span');
+    amountSpan.className = 'amount ' + type;
+    amountSpan.textContent = '$' + amount.toLocaleString();
+
+    row.appendChild(left);
+    row.appendChild(amountSpan);
     return row;
   }
 

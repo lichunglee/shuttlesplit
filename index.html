@@ -1,0 +1,2305 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --court-green: #1B4D3E;
+    --court-green-dark: #123529;
+    --cork: #D4A24C;
+    --cork-dark: #B4823A;
+    --paper: #FAF7F0;
+    --ink: #22303C;
+    --ink-soft: #5B6B76;
+    --line: #E3DDCE;
+    --error: #C0392B;
+    --error-bg: #FBEAE7;
+    --success: #1B4D3E;
+    --success-bg: #E8F1EC;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, sans-serif;
+    padding-bottom: 76px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  header {
+    background: var(--court-green);
+    color: var(--paper);
+    padding: 18px 20px 22px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 3px;
+    background: repeating-linear-gradient(90deg, var(--cork) 0 16px, transparent 16px 26px);
+  }
+
+  header .back-btn {
+    background: none;
+    border: none;
+    color: var(--paper);
+    font-size: 20px;
+    padding: 0;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 19px;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  main {
+    padding: 18px 16px 0;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  section {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 16px;
+    margin-bottom: 16px;
+  }
+
+  section h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 14px;
+    color: var(--court-green);
+  }
+
+  .field-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .field { flex: 1; }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 5px;
+    font-weight: 500;
+  }
+
+  .field input[type="number"], .field input[type="text"] {
+    width: 100%;
+    padding: 11px 10px;
+    border: 1.5px solid var(--line);
+    border-radius: 9px;
+    font-size: 16px;
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+  }
+
+  .field input:focus { outline: none; border-color: var(--court-green); }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .scoreboard {
+    margin-top: 4px;
+    background: var(--court-green-dark);
+    border-radius: 10px;
+    padding: 12px 16px;
+  }
+
+  .scoreboard .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 3px 0;
+  }
+
+  .scoreboard .label { font-size: 12px; color: #BFE0D2; font-weight: 500; }
+  .scoreboard .sub { font-size: 12px; color: #9CCBB3; }
+  .scoreboard .amount { font-size: 15px; font-weight: 500; color: #fff; }
+  .scoreboard .total { font-size: 24px; font-weight: 700; color: #fff; }
+
+  .member-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .member-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+  }
+
+  .member-row.checked { border-color: var(--cork); background: #FBF4E6; }
+
+  .member-row input[type="checkbox"] {
+    width: 20px; height: 20px;
+    accent-color: var(--court-green);
+    flex-shrink: 0;
+  }
+
+  .member-row .name { flex: 1; font-size: 15px; font-weight: 500; }
+
+  .member-row .extra-input {
+    width: 78px;
+    padding: 7px 8px;
+    border: 1.5px solid var(--line);
+    border-radius: 7px;
+    font-size: 14px;
+    text-align: right;
+    background: #fff;
+    visibility: hidden;
+  }
+
+  .member-row.checked .extra-input { visibility: visible; }
+
+  .hint { font-size: 12px; color: var(--ink-soft); margin: -8px 0 12px; line-height: 1.5; }
+
+  footer.action-bar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: rgba(250,247,240,0.97);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid var(--line);
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  #submitBtn, .primary-btn {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    display: block;
+    background: var(--court-green);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  #submitBtn:active, .primary-btn:active { background: var(--court-green-dark); }
+  #submitBtn:disabled { opacity: 0.5; }
+
+  .banner {
+    max-width: 480px;
+    margin: 0 auto 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    display: none;
+    white-space: pre-line;
+  }
+
+  .banner.show { display: block; }
+  .banner.error { background: var(--error-bg); color: var(--error); border: 1px solid #F0C9C2; }
+  .banner.success { background: var(--success-bg); color: var(--success); border: 1px solid #BFDBCC; }
+
+  .loading { text-align: center; padding: 30px 0; color: var(--ink-soft); font-size: 14px; }
+
+  .home-balance {
+    background: var(--court-green-dark);
+    border-radius: 16px;
+    padding: 20px 18px;
+    color: var(--paper);
+  }
+
+  .home-balance .label { font-size: 13px; color: #BFE0D2; margin-bottom: 4px; }
+  .home-balance .value { font-size: 22px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+  .home-balance .sub { font-size: 12px; color: #9CCBB3; margin-top: 6px; }
+
+  .quick-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .quick-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 12px;
+    border-radius: 12px;
+    border: 1.5px solid var(--line);
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+  }
+
+  .bottom-nav {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 56px;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .add-entry-btn {
+    width: 100%;
+    padding: 10px;
+    border: 1.5px dashed var(--cork);
+    border-radius: 9px;
+    background: #FBF4E6;
+    color: var(--cork-dark);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    margin-top: 4px;
+  }
+
+  .entry-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+  .entry-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 12px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .entry-item .remove-btn {
+    background: none;
+    border: none;
+    color: var(--error);
+    font-size: 16px;
+    font-weight: 700;
+    padding: 0 4px;
+    line-height: 1;
+  }
+
+  select {
+    width: 100%;
+    padding: 11px 10px;
+    border: 1.5px solid var(--line);
+    border-radius: 9px;
+    font-size: 15px;
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+  }
+
+  .settlement-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+
+  .settlement-row .name { font-size: 14px; font-weight: 600; }
+  .settlement-row .amount { font-size: 14px; font-weight: 600; margin-right: 8px; }
+  .settlement-row.owe .amount { color: var(--error); }
+  .settlement-row.receive .amount { color: var(--court-green); }
+
+  .summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row .name { font-size: 14px; font-weight: 500; }
+  .summary-row .amount { font-size: 15px; font-weight: 700; }
+  .summary-row .amount.owe { color: var(--error); }
+  .summary-row .amount.receive { color: var(--court-green); }
+
+  .summary-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .suggestion-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: #fff;
+  }
+
+  .suggestion-row .names { font-size: 13.5px; color: var(--ink); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .suggestion-row .names b { font-weight: 700; }
+  .suggestion-row .arrow { color: var(--cork-dark); font-weight: 700; }
+  .suggestion-row .amount { font-size: 15px; font-weight: 700; color: var(--ink); flex-shrink: 0; }
+
+  .history-batch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: #fff;
+    cursor: pointer;
+  }
+  .history-batch-row .date { font-size: 14px; font-weight: 600; }
+  .history-batch-row .count { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .history-batch-row .chevron { color: var(--ink-soft); font-size: 18px; }
+
+  .history-detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .history-detail-row:last-child { border-bottom: none; }
+  .history-detail-row .name { font-size: 14px; font-weight: 600; }
+  .history-detail-row .nums { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .history-detail-row .received-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-soft); flex-shrink: 0; }
+  .history-detail-row .received-check input { width: 18px; height: 18px; accent-color: var(--court-green); }
+
+  .member-mgmt-row {
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .member-mgmt-row .row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    cursor: pointer;
+  }
+  .member-mgmt-row .row-head .left { display: flex; align-items: center; gap: 8px; }
+  .member-mgmt-row .row-head .name { font-size: 14px; font-weight: 600; }
+  .member-mgmt-row .row-head .net { font-size: 12px; color: var(--ink-soft); }
+  .badge {
+    font-size: 10.5px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .badge.bound { background: #E8F1EC; color: var(--court-green); }
+
+  .avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+    background: var(--court-green);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .avatar.sm { width: 22px; height: 22px; font-size: 10px; }
+
+  .tab-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 4px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 9px 0;
+    border: none;
+    border-radius: 9px;
+    background: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    font-family: 'Inter', sans-serif;
+  }
+  .tab-btn.active { background: var(--court-green); color: #fff; }
+
+  .tx-card { flex-direction: column; align-items: stretch; }
+  .tx-card .tx-head { display: flex; justify-content: space-between; align-items: center; width: 100%; cursor: pointer; }
+  .tx-card .tx-detail { display: none; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .tx-card .tx-detail.open { display: block; }
+  .tx-person-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+  .tx-person-row .left { display: flex; align-items: center; gap: 8px; }
+  .tx-person-row .left span { font-size: 13.5px; }
+  .tx-person-row .amt { font-size: 13.5px; font-weight: 600; }
+  .badge.unbound { background: #F0EEE7; color: var(--ink-soft); }
+
+  .member-mgmt-edit {
+    display: none;
+    padding: 14px;
+    border-top: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .member-mgmt-edit.open { display: block; }
+  .member-mgmt-edit .field { margin-bottom: 10px; }
+  .member-mgmt-edit .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+  .member-mgmt-edit .btn-row button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    font-family: 'Inter', sans-serif;
+  }
+  .btn-save { background: var(--court-green); color: #fff; }
+  .btn-delete { background: var(--error-bg); color: var(--error); border: 1px solid #F0C9C2 !important; }
+
+  .settle-btn {
+    background: var(--cork);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    flex-shrink: 0;
+  }
+
+  .nav-item.active { color: var(--court-green); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="view-home" class="view active">
+  <header><h1>🏸 ShuttleSplit</h1></header>
+  <main>
+    <div id="homeBanner" class="banner"></div>
+
+    <section id="bindingPrompt" style="display:none;border-color:var(--cork);">
+      <h2 style="color:var(--cork-dark);">👋 你好，<span id="bindingDisplayName"></span></h2>
+      <p class="hint">還沒認領你的身分，之後才能查自己的帳單</p>
+
+      <div class="checkbox-row" style="gap:16px;">
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="radio" name="bindMode" value="existing" checked onchange="switchBindMode('existing')"> 選現有成員
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="radio" name="bindMode" value="new" onchange="switchBindMode('new')"> 我是新成員
+        </label>
+      </div>
+
+      <div id="bindExistingFields">
+        <div class="field" style="margin:10px 0;">
+          <select id="bindingNameSelect"></select>
+        </div>
+      </div>
+
+      <div id="bindNewFields" style="display:none;">
+        <div class="field" style="margin:10px 0;">
+          <label>你的名字（預設帶入 LINE 顯示名稱，可修改）</label>
+          <input type="text" id="bindNewName">
+        </div>
+      </div>
+
+      <button type="button" class="primary-btn" onclick="submitBinding()">確認是我</button>
+      <button type="button" onclick="skipBinding()" style="width:100%;background:none;border:none;color:var(--ink-soft);font-size:13px;padding:10px 0 0;font-family:'Inter',sans-serif;">略過，之後再說</button>
+    </section>
+
+    <div class="home-balance">
+      <div class="label">羽球基金餘額</div>
+      <div class="value" id="fundBalanceDisplay">載入中…</div>
+      <div class="sub">大家一起把它養大，換更好的球</div>
+    </div>
+
+    <div class="quick-grid">
+      <button class="quick-btn" onclick="goTo('badminton')">🏸 新增羽球費用</button>
+      <button class="quick-btn" onclick="goTo('outing')">🧾 新增一般費用</button>
+      <button class="quick-btn" onclick="goTo('settlement')">⚖️ 結算狀況</button>
+      <button class="quick-btn" onclick="goTo('fund')">💰 羽球基金</button>
+    </div>
+
+    <section id="recentActivitySection" style="margin-top:16px;">
+      <h2>最近新增</h2>
+      <div id="recentActivityContent" class="hint" style="margin:0;">尚無新增紀錄</div>
+    </section>
+
+    <div style="text-align:center;font-size:10.5px;color:var(--ink-soft);padding:14px 0 6px;opacity:0.6;">
+      LIFF ID: <span id="liffIdDisplay"></span>
+    </div>
+  </main>
+
+  <div class="bottom-nav">
+    <button class="nav-item active"><span>🏠</span>首頁</button>
+    <button class="nav-item" onclick="goTo('history')"><span>🕘</span>歷史</button>
+    <button class="nav-item" onclick="goTo('members')"><span>👥</span>成員</button>
+    <button class="nav-item" onclick="comingSoon('個人頁面')"><span>👤</span>我的</button>
+  </div>
+</div>
+
+<div id="view-badminton" class="view">
+  <header>
+    <button class="back-btn" onclick="goTo('home')">‹</button>
+    <h1>新增羽球費用</h1>
+  </header>
+  <main>
+    <div id="banner" class="banner"></div>
+
+    <section>
+      <h2>活動名稱</h2>
+      <div class="field">
+        <input type="text" id="activityName" placeholder="例如：週三夜場（留空就用日期時間）">
+      </div>
+    </section>
+
+    <section>
+      <h2>場地費</h2>
+      <div class="field-row">
+        <div class="field">
+          <label>場地費 / hr</label>
+          <input type="number" id="venueRateInput" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label>時數</label>
+          <input type="number" id="venueHoursInput" inputmode="decimal" placeholder="0">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>墊款人（誰先付了這筆）</label>
+        <select id="venuePayerInput"></select>
+      </div>
+      <button type="button" class="add-entry-btn" onclick="addEntry('venue')">+ 新增這筆紀錄</button>
+      <div id="venueEntryList" class="entry-list"></div>
+    </section>
+
+    <section>
+      <h2>羽球費</h2>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="fundToggle" onchange="toggleSection('fund')">
+        <span>羽球基金計費</span>
+      </div>
+      <div id="fundFields" style="display:none;">
+        <p class="hint">依出席人時直接計費，自動存入羽球基金，不用另外指定墊款人</p>
+        <div class="field">
+          <label>基金費率 / hr</label>
+          <input type="number" id="fundRate" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="checkbox-row" style="margin-top:14px;">
+        <input type="checkbox" id="selfBallToggle" onchange="toggleSection('selfBall')">
+        <span>自備羽球計費</span>
+      </div>
+      <div id="selfBallFields" style="display:none;">
+        <div class="field-row">
+          <div class="field">
+            <label>單顆價格</label>
+            <input type="number" id="selfBallPriceInput" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label>使用顆數</label>
+            <input type="number" id="selfBallCountInput" inputmode="decimal" placeholder="0">
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>墊款人（誰先付了這筆）</label>
+          <select id="selfBallPayerInput"></select>
+        </div>
+        <button type="button" class="add-entry-btn" onclick="addEntry('selfBall')">+ 新增這筆紀錄</button>
+        <div id="selfBallEntryList" class="entry-list"></div>
+        <p class="hint" style="margin-top:10px;">併入場地費一起依人時比例分攤</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>本次預估金額</h2>
+      <div class="scoreboard">
+        <div class="row"><span class="label">場地費+自備球</span><span class="amount" id="fixedPoolDisplay">$0</span></div>
+        <div class="row"><span class="label">羽球基金計費</span><span class="amount" id="fundTotalDisplay">$0</span></div>
+        <div class="row" style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.15);padding-top:8px;">
+          <span class="label">總計</span><span class="total" id="grandTotalDisplay">$0</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>出席名單</h2>
+      <p class="hint">預設每人 2 小時，可自行修改</p>
+      <div id="attendeeList" class="member-list"><div class="loading">載入成員清單中…</div></div>
+    </section>
+  </main>
+
+  <footer class="action-bar">
+    <button id="submitBtn" onclick="submitBadmintonForm()">送出記帳</button>
+  </footer>
+</div>
+
+<div id="view-outing" class="view">
+  <header>
+    <button class="back-btn" onclick="goTo('home')">‹</button>
+    <h1>新增一般費用</h1>
+  </header>
+  <main>
+    <div id="outingBanner" class="banner"></div>
+
+    <section>
+      <h2>活動名稱</h2>
+      <div class="field">
+        <input type="text" id="outingActivityName" placeholder="例如：慶功宴（留空就用日期時間）">
+      </div>
+    </section>
+
+    <section>
+      <h2>誰先墊的錢？</h2>
+      <p class="hint">填金額、選墊款人，按+新增；總金額會自動加總所有紀錄</p>
+      <div class="field-row">
+        <div class="field">
+          <label>金額</label>
+          <input type="number" id="outingAmountInput" inputmode="decimal" placeholder="0">
+        </div>
+        <div class="field">
+          <label>墊款人</label>
+          <select id="outingPayerInput"></select>
+        </div>
+      </div>
+      <button type="button" class="add-entry-btn" onclick="addOutingPayerEntry()">+ 新增這筆紀錄</button>
+      <div id="outingPayerEntryList" class="entry-list"></div>
+      <div class="scoreboard" style="margin-top:12px;">
+        <div class="row"><span class="label">總金額</span><span class="total" id="outingTotalDisplay">$0</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>參加者</h2>
+      <p class="hint">留空金額代表自動均分剩餘金額，也可以指定固定金額</p>
+      <div id="outingParticipantList" class="member-list"><div class="loading">載入成員清單中…</div></div>
+    </section>
+  </main>
+
+  <footer class="action-bar">
+    <button id="outingSubmitBtn" class="primary-btn" onclick="submitOutingForm()">送出記帳</button>
+  </footer>
+</div>
+
+<div id="view-fund" class="view">
+  <header>
+    <button class="back-btn" onclick="goTo('home')">‹</button>
+    <h1>羽球基金</h1>
+  </header>
+  <main>
+    <div id="fundBanner" class="banner"></div>
+
+    <div class="home-balance" style="margin-bottom:16px;">
+      <div class="label">目前餘額</div>
+      <div class="value" id="fundPageBalanceDisplay">載入中…</div>
+    </div>
+
+    <section>
+      <h2>存入</h2>
+      <div class="field-row">
+        <div class="field">
+          <label>金額</label>
+          <input type="number" id="depositAmount" inputmode="decimal" placeholder="0">
+        </div>
+        <div class="field">
+          <label>誰存的</label>
+          <select id="depositPerson"></select>
+        </div>
+      </div>
+      <button type="button" class="primary-btn" onclick="submitFundAction('deposit')">存入</button>
+    </section>
+
+    <section>
+      <h2>購買（買球等支出）</h2>
+      <div class="field" style="margin-bottom:10px;">
+        <label>金額</label>
+        <input type="number" id="purchaseAmount" inputmode="decimal" placeholder="0">
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>用途說明</label>
+        <input type="text" id="purchaseNote" placeholder="例如：購買羽球 10桶">
+      </div>
+      <button type="button" class="primary-btn" onclick="submitFundAction('purchase')">登記支出</button>
+    </section>
+
+    <section>
+      <h2>歸還代墊購球款</h2>
+      <div class="field-row">
+        <div class="field">
+          <label>金額</label>
+          <input type="number" id="returnAmount" inputmode="decimal" placeholder="0">
+        </div>
+        <div class="field">
+          <label>歸還給誰</label>
+          <select id="returnPerson"></select>
+        </div>
+      </div>
+      <p class="hint">備註會自動寫成「歸還OO代墊購球款」，不用手動打字</p>
+      <button type="button" class="primary-btn" onclick="submitFundAction('return')">登記歸還</button>
+    </section>
+  </main>
+</div>
+
+<div id="view-settlement" class="view">
+  <header>
+    <button class="back-btn" onclick="goTo('home')">‹</button>
+    <h1>結算狀況</h1>
+  </header>
+  <main>
+    <div id="settlementBanner" class="banner"></div>
+
+    <section>
+      <h2>總覽</h2>
+      <div id="settlementSummaryList"><div class="loading">載入中…</div></div>
+    </section>
+
+    <section>
+      <h2>結帳建議（最少轉帳次數）</h2>
+      <div id="settlementSuggestionList"><div class="loading">載入中…</div></div>
+    </section>
+
+    <section style="border-color:var(--error);">
+      <h2 style="color:var(--error);">⚠️ 季度結算</h2>
+      <p class="hint">把所有人目前的帳目存快照、全部歸零，開啟新一季。此動作無法復原，請確認大家都已經處理完這季的款項再執行。</p>
+      <button type="button" class="primary-btn" style="background:var(--error);" onclick="startQuarterlySettlement()">季度結算</button>
+    </section>
+  </main>
+</div>
+
+<div id="view-history" class="view">
+  <header>
+    <button class="back-btn" onclick="goTo('home')">‹</button>
+    <h1>歷史紀錄</h1>
+  </header>
+  <main>
+    <div id="historyBanner" class="banner"></div>
+
+    <div class="tab-bar">
+      <button type="button" class="tab-btn active" id="historyTabTransactions" onclick="switchHistoryTab('transactions')">交易紀錄</button>
+      <button type="button" class="tab-btn" id="historyTabBatches" onclick="switchHistoryTab('batches')">季度結算紀錄</button>
+    </div>
+
+    <section id="historyTransactionsPanel">
+      <div id="historyTransactionList"><div class="loading">載入中…</div></div>
+    </section>
+
+    <section id="historyBatchesPanel" style="display:none;">
+      <h2>過去季度結算紀錄</h2>
+      <div id="historyBatchList"><div class="loading">載入中…</div></div>
+    </section>
+  </main>
+</div>
+
+<div id="view-history-detail" class="view">
+  <header>
+    <button class="back-btn" onclick="goTo('history')">‹</button>
+    <h1 id="historyDetailTitle">結算明細</h1>
+  </header>
+  <main>
+    <p class="hint">「已收款」勾選純粹是給管理員自己追蹤用，不會影響任何即時帳目計算</p>
+    <section>
+      <div id="historyDetailList"><div class="loading">載入中…</div></div>
+    </section>
+  </main>
+</div>
+
+<div id="view-members" class="view">
+  <header>
+    <button class="back-btn" onclick="goTo('home')">‹</button>
+    <h1>成員管理</h1>
+  </header>
+  <main>
+    <div id="membersBanner" class="banner"></div>
+
+    <section>
+      <h2>新增成員</h2>
+      <div class="field-row">
+        <div class="field">
+          <input type="text" id="newMemberName" placeholder="輸入姓名">
+        </div>
+      </div>
+      <button type="button" class="primary-btn" onclick="submitAddMember()">新增</button>
+    </section>
+
+    <section>
+      <h2>成員清單</h2>
+      <p class="hint">點一個人可以展開編輯（改名、綁定/修改 LINE ID、刪除）</p>
+      <div id="membersList"><div class="loading">載入中…</div></div>
+    </section>
+  </main>
+</div>
+
+<script>
+  var members = [];
+  var settings = {};
+  var DEFAULT_ATTENDEE_HOURS = 2;
+  var venueEntries = [];
+  var selfBallEntries = [];
+
+  var myLineUserId = null;
+  var myDisplayName = null;
+  var myPictureUrl = null;
+  var myBoundName = null;
+
+  // ============================================================
+  // 靜態版設定：這個檔案是放在 GitHub Pages（或其他靜態網站）上的，
+  // 不再由 Google Apps Script 用範本語法帶入設定，所以這兩個值要手動改。
+  // 換部署（新的 LIFF app 或新的 GAS Web App 網址）時記得回來改這裡。
+  // ============================================================
+  var CONFIG = {
+    LIFF_ID: '2010691643-7CS3NZUC',
+    API_BASE: 'https://script.google.com/macros/s/AKfycbwSJMoxKBMN4KUttPqhFcm1Ot7tVAvUBfiWRszJUQoYnLK2EoOcX8NNFVSJ_Ev1hxjCLw/exec'
+  };
+  document.getElementById('liffIdDisplay').textContent = CONFIG.LIFF_ID || '（沒設定）';
+
+  // ============================================================
+  // 呼叫後端 JSON API（取代原本的 google.script.run，因為這個頁面現在是
+  // 獨立網域的靜態頁面，google.script.run 只有頁面本身由 GAS 提供時才能用）。
+  // 用 JSONP（動態插入 <script> 標籤）呼叫，不是 fetch，因為 Apps Script
+  // Web App 對跨網域 POST/fetch 的 CORS 支援不穩定，JSONP 是公認可靠的做法。
+  // action 對應後端 doGet 裡的 action 分支；payload 會被 JSON.stringify 後
+  // 當成 URL 參數傳過去，回傳一樣是一個 Promise，resolve 值就是後端函式原本的回傳物件。
+  // ============================================================
+  var _jsonpSeq = 0;
+  function callApi(action, payload) {
+    return new Promise(function (resolve, reject) {
+      var cbName = '_ssCb' + (_jsonpSeq++) + '_' + Date.now();
+      var script = document.createElement('script');
+      var timeoutId = setTimeout(function () {
+        cleanup();
+        reject(new Error('API 逾時（' + action + '）'));
+      }, 15000);
+
+      function cleanup() {
+        clearTimeout(timeoutId);
+        delete window[cbName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      window[cbName] = function (res) {
+        cleanup();
+        resolve(res);
+      };
+
+      var url = CONFIG.API_BASE +
+        '?action=' + encodeURIComponent(action) +
+        '&callback=' + cbName +
+        (payload !== undefined ? '&payload=' + encodeURIComponent(JSON.stringify(payload)) : '');
+      script.src = url;
+      script.onerror = function () {
+        cleanup();
+        reject(new Error('API 呼叫失敗（' + action + '），請檢查網路連線'));
+      };
+      document.body.appendChild(script);
+    });
+  }
+
+  (function initLiff() {
+    var banner = document.getElementById('homeBanner');
+    var settled = false;
+    var liffIdUsed = CONFIG.LIFF_ID;
+
+    // liff.init() 在部分手機內建瀏覽器（尤其快取到舊版頁面時）可能整個卡住、
+    // 既不 resolve 也不 reject，畫面就會靜靜停在首頁什麼都不顯示。加逾時保護，
+    // 讓這種情況也能看到明確的錯誤訊息，方便截圖回報除錯。把實際用的 liffId 也印出來，
+    // 避免還要另外去猜 Script Property 是不是設對了。
+    setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      banner.className = 'banner show error';
+      banner.textContent = '⚠️ LIFF 初始化逾時（liff.init 超過 8 秒沒回應，liffId=' + liffIdUsed + '），請完全關閉 LINE App 重開後再試一次；若持續發生，可能是手機快取到舊版頁面';
+    }, 8000);
+
+    try {
+      if (typeof liff === 'undefined') {
+        settled = true;
+        console.log('LIFF SDK 未載入，以一般網頁模式運作');
+        return;
+      }
+      liff.init({ liffId: liffIdUsed }).then(function () {
+        if (settled) return;
+        settled = true;
+        checkMyLineBinding();
+      }).catch(function (err) {
+        if (settled) return;
+        settled = true;
+        banner.className = 'banner show error';
+        banner.textContent = '⚠️ LIFF 初始化失敗（liffId=' + liffIdUsed + '）：' + (err && err.message ? err.message : JSON.stringify(err));
+      });
+    } catch (e) {
+      settled = true;
+      console.log('LIFF SDK 未載入，以一般網頁模式運作');
+    }
+  })();
+
+  function checkMyLineBinding() {
+    var banner = document.getElementById('homeBanner');
+    try {
+      if (!liff.isLoggedIn()) {
+        banner.className = 'banner show error';
+        banner.textContent = '⚠️ 偵測到尚未透過 LINE 登入（liff.isLoggedIn() = false），無法檢查綁定狀態';
+        return;
+      }
+
+      // liff.getProfile() 在部分手機瀏覽器環境下可能整個卡住、不 resolve 也不 reject，
+      // 導致畫面靜靜停在首頁、什麼提示都不會跳出來。加一個逾時保護，讓這種情況也看得到錯誤訊息，方便回報除錯。
+      var settled = false;
+      setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        banner.className = 'banner show error';
+        banner.textContent = '⚠️ 讀取 LINE 個人資料逾時（liff.getProfile 超過 8 秒沒回應），請完全關閉 LINE App 重開後再試一次';
+      }, 8000);
+
+      liff.getProfile().then(function (profile) {
+        if (settled) return;
+        settled = true;
+        myLineUserId = profile.userId;
+        myPictureUrl = profile.pictureUrl || null;
+        myDisplayName = profile.displayName;
+
+        callApi('getMyBinding', { lineUserId: myLineUserId }).then(function (res) {
+          if (!res.success) {
+            banner.className = 'banner show error';
+            banner.textContent = '⚠️ 查詢綁定狀態失敗：' + res.error;
+            return;
+          }
+          if (res.bound) {
+            myBoundName = res.name;
+          } else {
+            showBindingPrompt();
+          }
+        }).catch(function (err) {
+          banner.className = 'banner show error';
+          banner.textContent = '⚠️ 呼叫 getMyBinding 失敗：' + err.message;
+        });
+      }).catch(function (err) {
+        if (settled) return;
+        settled = true;
+        banner.className = 'banner show error';
+        banner.textContent = '⚠️ 取得 LINE 個人資料失敗：' + JSON.stringify(err);
+      });
+    } catch (e) {
+      banner.className = 'banner show error';
+      banner.textContent = '⚠️ liff.getProfile 無法使用：' + e.message;
+    }
+  }
+
+  function showBindingPrompt() {
+    document.getElementById('bindingDisplayName').textContent = myDisplayName || '';
+    document.getElementById('bindingPrompt').style.display = 'block';
+    document.getElementById('bindNewName').value = myDisplayName || '';
+
+    callApi('getUnboundMembers').then(function (res) {
+      var select = document.getElementById('bindingNameSelect');
+      select.innerHTML = '';
+      if (!res.success || res.names.length === 0) {
+        var opt = document.createElement('option');
+        opt.textContent = '目前沒有可認領的名字';
+        select.appendChild(opt);
+        return;
+      }
+      res.names.forEach(function (n) {
+        var opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        select.appendChild(opt);
+      });
+    });
+  }
+
+  function skipBinding() {
+    document.getElementById('bindingPrompt').style.display = 'none';
+  }
+
+  // 補救措施：如果首頁的 LINE 綁定偵測沒有跑成功（myLineUserId 還是 null），
+  // 進成員管理頁面時再試一次抓 LINE profile，讓「這是我」一鍵綁定按鈕仍然能正常顯示
+  function ensureMyLineProfile(callback) {
+    if (myLineUserId) { callback(); return; }
+    try {
+      if (typeof liff === 'undefined' || !liff.isLoggedIn || !liff.isLoggedIn()) { callback(); return; }
+      liff.getProfile().then(function (profile) {
+        myLineUserId = profile.userId;
+        myDisplayName = profile.displayName;
+        myPictureUrl = profile.pictureUrl || null;
+        callback();
+      }).catch(function () { callback(); });
+    } catch (e) {
+      callback();
+    }
+  }
+
+  function quickBindMember(name) {
+    var banner = document.getElementById('membersBanner');
+    banner.className = 'banner';
+    callApi('bindMyLineId', { name: name, lineUserId: myLineUserId, pictureUrl: myPictureUrl }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      myBoundName = res.name;
+      banner.className = 'banner show success';
+      banner.textContent = '✅ 已認領「' + res.name + '」，之後開啟表單會記得你是誰';
+      document.getElementById('bindingPrompt').style.display = 'none';
+      refreshMembersList();
+      refreshSharedMemberLists();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function switchBindMode(mode) {
+    document.getElementById('bindExistingFields').style.display = mode === 'existing' ? 'block' : 'none';
+    document.getElementById('bindNewFields').style.display = mode === 'new' ? 'block' : 'none';
+  }
+
+  function submitBinding() {
+    var banner = document.getElementById('homeBanner');
+    banner.className = 'banner';
+
+    if (!myLineUserId) {
+      banner.className = 'banner show error';
+      banner.textContent = '無法取得綁定資訊，請重新整理頁面再試一次';
+      return;
+    }
+
+    var mode = document.querySelector('input[name="bindMode"]:checked').value;
+
+    if (mode === 'existing') {
+      var name = document.getElementById('bindingNameSelect').value;
+      if (!name) {
+        banner.className = 'banner show error';
+        banner.textContent = '請選擇一個名字';
+        return;
+      }
+      callApi('bindMyLineId', { name: name, lineUserId: myLineUserId, pictureUrl: myPictureUrl })
+        .then(function (res) { handleBindingResult(res, banner); })
+        .catch(function (err) {
+          banner.className = 'banner show error';
+          banner.textContent = '系統錯誤：' + err.message;
+        });
+    } else {
+      var newName = document.getElementById('bindNewName').value.trim();
+      if (!newName) {
+        banner.className = 'banner show error';
+        banner.textContent = '請輸入你的名字';
+        return;
+      }
+      callApi('addAndBindMember', { name: newName, lineUserId: myLineUserId, pictureUrl: myPictureUrl })
+        .then(function (res) { handleBindingResult(res, banner); })
+        .catch(function (err) {
+          banner.className = 'banner show error';
+          banner.textContent = '系統錯誤：' + err.message;
+        });
+    }
+  }
+
+  function handleBindingResult(res, banner) {
+    if (!res.success) {
+      banner.className = 'banner show error';
+      banner.textContent = res.error;
+      return;
+    }
+    myBoundName = res.name;
+    document.getElementById('bindingPrompt').style.display = 'none';
+    banner.className = 'banner show success';
+    banner.textContent = '✅ 已認領「' + res.name + '」，之後開啟表單會記得你是誰';
+    refreshSharedMemberLists();
+  }
+
+  function renderRecentActivity(title, totalCost, detailLines) {
+    var el = document.getElementById('recentActivityContent');
+    el.innerHTML = '';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'border:1px solid var(--line);border-radius:10px;padding:12px 14px;';
+
+    var head = document.createElement('div');
+    head.style.cssText = 'display:flex;justify-content:space-between;font-weight:600;font-size:14px;color:var(--ink);margin-bottom:6px;';
+    head.innerHTML = '<span>' + title + '</span><span>$' + Math.round(totalCost).toLocaleString() + '</span>';
+    card.appendChild(head);
+
+    detailLines.forEach(function (line) {
+      var p = document.createElement('div');
+      p.style.cssText = 'font-size:12.5px;color:var(--ink-soft);padding:2px 0;';
+      p.textContent = line;
+      card.appendChild(p);
+    });
+
+    el.appendChild(card);
+  }
+
+  function goTo(viewName) {
+    document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+    document.getElementById('view-' + viewName).classList.add('active');
+    window.scrollTo(0, 0);
+    if (viewName === 'fund') refreshFundPageBalance();
+    if (viewName === 'settlement') { _quarterlySettlementPending = false; refreshSettlementList(); }
+    if (viewName === 'history') switchHistoryTab('transactions');
+    if (viewName === 'members') ensureMyLineProfile(refreshMembersList);
+  }
+
+  function comingSoon(name) {
+    var el = document.getElementById('homeBanner');
+    el.className = 'banner show error';
+    el.textContent = name + '即將推出，敬請期待';
+    setTimeout(function () { el.className = 'banner'; }, 2500);
+  }
+
+  function showBanner(type, text) {
+    var el = document.getElementById('banner');
+    el.className = 'banner show ' + type;
+    el.textContent = text;
+    window.scrollTo(0, 0);
+  }
+  function hideBanner() { document.getElementById('banner').className = 'banner'; }
+
+  // 產生頭像元素：有 LINE 頭像網址就用 <img>，沒有就用姓名第一個字的圓形色塊當 fallback
+  // （大部分舊資料還沒重新綁定過，不會有頭像，這個 fallback 讓畫面不會空一塊）
+  function buildAvatarEl(name, avatarUrl, sizeClass) {
+    if (avatarUrl) {
+      var img = document.createElement('img');
+      img.className = 'avatar' + (sizeClass ? ' ' + sizeClass : '');
+      img.src = avatarUrl;
+      img.alt = name || '';
+      img.onerror = function () {
+        var fallback = buildAvatarEl(name, null, sizeClass);
+        img.replaceWith(fallback);
+      };
+      return img;
+    }
+    var div = document.createElement('div');
+    div.className = 'avatar' + (sizeClass ? ' ' + sizeClass : '');
+    div.textContent = (name || '?').trim().charAt(0);
+    return div;
+  }
+
+  // 產生「A → B」這種轉帳建議的名字列，兩邊都可以各自帶頭像（羽球基金那種特殊對象就不傳 toAvatar，只顯示文字）
+  function buildNamesEl(fromName, fromAvatar, toLabel, toAvatar) {
+    var namesDiv = document.createElement('div');
+    namesDiv.className = 'names';
+    namesDiv.appendChild(buildAvatarEl(fromName, fromAvatar, 'sm'));
+    var fromB = document.createElement('b');
+    fromB.textContent = fromName;
+    namesDiv.appendChild(fromB);
+    var arrow = document.createElement('span');
+    arrow.className = 'arrow';
+    arrow.textContent = '→';
+    namesDiv.appendChild(arrow);
+    if (toAvatar !== undefined) {
+      namesDiv.appendChild(buildAvatarEl(toLabel, toAvatar, 'sm'));
+    }
+    var toB = document.createElement('b');
+    toB.textContent = toLabel;
+    namesDiv.appendChild(toB);
+    return namesDiv;
+  }
+
+  function toggleSection(section) {
+    var checked = document.getElementById(section + 'Toggle').checked;
+    document.getElementById(section + 'Fields').style.display = checked ? 'block' : 'none';
+    if (checked && section === 'fund' && !document.getElementById('fundRate').value) {
+      document.getElementById('fundRate').value = settings.fundRateDefault || 30;
+    }
+    if (!checked) {
+      if (section === 'selfBall') { selfBallEntries = []; renderEntryList('selfBall'); }
+      if (section === 'fund') { document.getElementById('fundRate').value = ''; }
+    }
+    updateScoreboard();
+  }
+
+  function populatePayerSelects() {
+    ['venuePayerInput', 'selfBallPayerInput', 'outingPayerInput', 'depositPerson', 'returnPerson'].forEach(function (id) {
+      var select = document.getElementById(id);
+      select.innerHTML = '';
+      members.forEach(function (name) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+    });
+  }
+
+  function addEntry(type) {
+    if (type === 'venue') {
+      var rate = parseFloat(document.getElementById('venueRateInput').value);
+      var hours = parseFloat(document.getElementById('venueHoursInput').value);
+      var payer = document.getElementById('venuePayerInput').value;
+      if (isNaN(rate) || isNaN(hours) || hours <= 0 || !payer) {
+        showBanner('error', '請把場地費/hr、時數、墊款人都填完整再新增');
+        return;
+      }
+      venueEntries.push({ ratePerHr: rate, hours: hours, payerName: payer });
+      document.getElementById('venueHoursInput').value = '';
+      renderEntryList('venue');
+    } else {
+      var price = parseFloat(document.getElementById('selfBallPriceInput').value);
+      var count = parseFloat(document.getElementById('selfBallCountInput').value);
+      var payer2 = document.getElementById('selfBallPayerInput').value;
+      if (isNaN(price) || isNaN(count) || count <= 0 || !payer2) {
+        showBanner('error', '請把單顆價格、顆數、墊款人都填完整再新增');
+        return;
+      }
+      selfBallEntries.push({ price: price, count: count, payerName: payer2 });
+      document.getElementById('selfBallCountInput').value = '';
+      renderEntryList('selfBall');
+    }
+    hideBanner();
+    updateScoreboard();
+  }
+
+  function removeEntry(type, index) {
+    if (type === 'venue') venueEntries.splice(index, 1);
+    else selfBallEntries.splice(index, 1);
+    renderEntryList(type);
+    updateScoreboard();
+  }
+
+  function renderEntryList(type) {
+    var list = type === 'venue' ? venueEntries : selfBallEntries;
+    var container = document.getElementById(type + 'EntryList');
+    container.innerHTML = '';
+    list.forEach(function (entry, i) {
+      var row = document.createElement('div');
+      row.className = 'entry-item';
+      var label = type === 'venue'
+        ? ('$' + entry.ratePerHr + '/hr × ' + entry.hours + 'hr = $' + Math.round(entry.ratePerHr * entry.hours) + '（' + entry.payerName + '）')
+        : ('$' + entry.price + ' × ' + entry.count + '顆 = $' + Math.round(entry.price * entry.count) + '（' + entry.payerName + '）');
+      row.innerHTML = '<span>' + label + '</span>';
+      var btn = document.createElement('button');
+      btn.className = 'remove-btn';
+      btn.textContent = '×';
+      btn.onclick = function () { removeEntry(type, i); };
+      row.appendChild(btn);
+      container.appendChild(row);
+    });
+  }
+
+  function updateScoreboard() {
+    var venueTotal = venueEntries.reduce(function (sum, e) { return sum + e.ratePerHr * e.hours; }, 0);
+    var selfBallTotal = selfBallEntries.reduce(function (sum, e) { return sum + e.price * e.count; }, 0);
+    var fixedPool = venueTotal + selfBallTotal;
+
+    var fundRate = document.getElementById('fundToggle').checked
+      ? (parseFloat(document.getElementById('fundRate').value) || 0)
+      : 0;
+
+    var personHours = 0;
+    document.querySelectorAll('#attendeeList .member-row.checked').forEach(function (row) {
+      personHours += parseFloat(row.querySelector('.extra-input').value) || 0;
+    });
+    var fundTotal = fundRate * personHours;
+
+    document.getElementById('fixedPoolDisplay').textContent = '$' + Math.round(fixedPool).toLocaleString();
+    document.getElementById('fundTotalDisplay').textContent = '$' + Math.round(fundTotal).toLocaleString();
+    document.getElementById('grandTotalDisplay').textContent = '$' + Math.round(fixedPool + fundTotal).toLocaleString();
+  }
+
+  document.getElementById('fundRate').addEventListener('input', updateScoreboard);
+  document.getElementById('attendeeList').addEventListener('input', updateScoreboard);
+  document.getElementById('attendeeList').addEventListener('change', updateScoreboard);
+
+  function renderMemberList(containerId, mode) {
+    var container = document.getElementById(containerId);
+    container.innerHTML = '';
+    if (members.length === 0) {
+      container.innerHTML = '<div class="loading">成員清單是空的，請先新增成員</div>';
+      return;
+    }
+    members.forEach(function (name) {
+      var row = document.createElement('div');
+      row.className = 'member-row';
+      row.dataset.name = name;
+
+      var checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'name';
+      nameSpan.textContent = name;
+
+      var extraInput = document.createElement('input');
+      extraInput.className = 'extra-input';
+      extraInput.type = 'number';
+      extraInput.inputMode = 'decimal';
+
+      if (mode === 'attendee') {
+        extraInput.placeholder = '時數';
+        extraInput.value = DEFAULT_ATTENDEE_HOURS;
+        checkbox.addEventListener('change', function () {
+          row.classList.toggle('checked', checkbox.checked);
+          updateScoreboard();
+        });
+      } else {
+        extraInput.placeholder = '金額(選填)';
+        checkbox.addEventListener('change', function () {
+          row.classList.toggle('checked', checkbox.checked);
+        });
+      }
+
+      row.appendChild(checkbox);
+      row.appendChild(nameSpan);
+      row.appendChild(extraInput);
+      if (mode === 'attendee') {
+        var unitSpan = document.createElement('span');
+        unitSpan.textContent = 'hr';
+        unitSpan.style.cssText = 'font-size:13px;color:var(--ink-soft);flex-shrink:0;';
+        row.appendChild(unitSpan);
+      }
+      container.appendChild(row);
+    });
+  }
+
+  function collectChecked(containerId) {
+    var rows = document.querySelectorAll('#' + containerId + ' .member-row.checked');
+    var result = [];
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var name = row.dataset.name;
+      var value = row.querySelector('.extra-input').value;
+      if (!value) return { error: name + ' 還沒填時數' };
+      result.push({ name: name, hours: value });
+    }
+    return { data: result };
+  }
+
+  function collectCheckedOptional(containerId) {
+    var rows = document.querySelectorAll('#' + containerId + ' .member-row.checked');
+    var result = [];
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      result.push({ name: row.dataset.name, amount: row.querySelector('.extra-input').value });
+    }
+    return { data: result };
+  }
+
+  var outingPayerEntries = [];
+
+  function addOutingPayerEntry() {
+    var amount = parseFloat(document.getElementById('outingAmountInput').value);
+    var payer = document.getElementById('outingPayerInput').value;
+    if (isNaN(amount) || amount <= 0 || !payer) {
+      var b = document.getElementById('outingBanner');
+      b.className = 'banner show error';
+      b.textContent = '請把金額、墊款人都填完整再新增';
+      return;
+    }
+    outingPayerEntries.push({ amount: amount, payerName: payer });
+    document.getElementById('outingAmountInput').value = '';
+    document.getElementById('outingBanner').className = 'banner';
+    renderOutingPayerEntryList();
+  }
+
+  function removeOutingPayerEntry(index) {
+    outingPayerEntries.splice(index, 1);
+    renderOutingPayerEntryList();
+  }
+
+  function renderOutingPayerEntryList() {
+    var container = document.getElementById('outingPayerEntryList');
+    container.innerHTML = '';
+    var total = 0;
+    outingPayerEntries.forEach(function (entry, i) {
+      total += entry.amount;
+      var row = document.createElement('div');
+      row.className = 'entry-item';
+      row.innerHTML = '<span>$' + entry.amount + '（' + entry.payerName + '）</span>';
+      var btn = document.createElement('button');
+      btn.className = 'remove-btn';
+      btn.textContent = '×';
+      btn.onclick = function () { removeOutingPayerEntry(i); };
+      row.appendChild(btn);
+      container.appendChild(row);
+    });
+    document.getElementById('outingTotalDisplay').textContent = '$' + Math.round(total).toLocaleString();
+  }
+
+  function submitFundAction(action) {
+    var banner = document.getElementById('fundBanner');
+    banner.className = 'banner';
+
+    var payload = {};
+    var amountFieldId, extraFieldId, isNote;
+
+    if (action === 'deposit') {
+      amountFieldId = 'depositAmount';
+      payload.personName = document.getElementById('depositPerson').value;
+    } else if (action === 'purchase') {
+      amountFieldId = 'purchaseAmount';
+      payload.note = document.getElementById('purchaseNote').value.trim();
+    } else {
+      amountFieldId = 'returnAmount';
+      payload.personName = document.getElementById('returnPerson').value;
+    }
+
+    payload.amount = document.getElementById(amountFieldId).value;
+
+    payload.txAction = action;
+    callApi('submitFundTransaction', payload).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      banner.className = 'banner show success';
+      banner.textContent = '✅ ' + res.note + '，目前餘額 $' + Math.round(res.newBalance).toLocaleString();
+
+      document.getElementById(amountFieldId).value = '';
+      if (action === 'purchase') document.getElementById('purchaseNote').value = '';
+
+      document.getElementById('fundPageBalanceDisplay').textContent = '$' + Math.round(res.newBalance).toLocaleString();
+      document.getElementById('fundBalanceDisplay').textContent = '$' + Math.round(res.newBalance).toLocaleString();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function refreshFundPageBalance() {
+    callApi('getFundBalance').then(function (res) {
+      document.getElementById('fundPageBalanceDisplay').textContent = '$' + Math.round(res.balance || 0).toLocaleString();
+    });
+  }
+
+  function refreshSharedMemberLists() {
+    callApi('getMembersList').then(function (res) {
+      if (!res.success) return;
+      members = res.members;
+      populatePayerSelects();
+      renderMemberList('attendeeList', 'attendee');
+      renderMemberList('outingParticipantList', 'outing');
+    });
+  }
+
+  function refreshMembersList() {
+    var el = document.getElementById('membersList');
+    el.innerHTML = '<div class="loading">載入中…</div>';
+
+    callApi('getAllMembers').then(function (res) {
+      if (!res.success) {
+        el.innerHTML = '<div class="loading">' + res.error + '</div>';
+        return;
+      }
+      if (res.members.length === 0) {
+        el.innerHTML = '<div class="loading">目前還沒有任何成員</div>';
+        return;
+      }
+      el.innerHTML = '';
+      res.members.forEach(function (m) {
+        el.appendChild(buildMemberMgmtRow(m));
+      });
+    }).catch(function (err) {
+      el.innerHTML = '<div class="loading">載入失敗：' + err.message + '</div>';
+    });
+  }
+
+  function buildMemberMgmtRow(m) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'member-mgmt-row';
+
+    var head = document.createElement('div');
+    head.className = 'row-head';
+
+    var left = document.createElement('div');
+    left.className = 'left';
+    left.appendChild(buildAvatarEl(m.name, m.avatar, 'sm'));
+    var nameAndBadge = document.createElement('span');
+    nameAndBadge.innerHTML = '<span class="name">' + m.name + '</span>' +
+      '<span class="badge ' + (m.bound ? 'bound' : 'unbound') + '">' + (m.bound ? '已綁定' : '未綁定') + '</span>';
+    left.appendChild(nameAndBadge);
+
+    var rightWrap = document.createElement('div');
+    rightWrap.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
+    var right = document.createElement('span');
+    right.className = 'net';
+    right.textContent = m.net === 0 ? '無未結款項' : (m.net > 0 ? '欠款 $' + Math.round(m.net).toLocaleString() : '待收回 $' + Math.round(Math.abs(m.net)).toLocaleString());
+    rightWrap.appendChild(right);
+
+    if (!m.bound && !myBoundName && myLineUserId) {
+      var bindBtn = document.createElement('button');
+      bindBtn.type = 'button';
+      bindBtn.className = 'settle-btn';
+      bindBtn.textContent = '這是我';
+      bindBtn.onclick = function (ev) { ev.stopPropagation(); quickBindMember(m.name); };
+      rightWrap.appendChild(bindBtn);
+    }
+
+    head.appendChild(left);
+    head.appendChild(rightWrap);
+
+    var editPanel = document.createElement('div');
+    editPanel.className = 'member-mgmt-edit';
+
+    var nameField = document.createElement('div');
+    nameField.className = 'field';
+    nameField.innerHTML = '<label>姓名</label><input type="text" class="edit-name" value="' + m.name.replace(/"/g, '&quot;') + '">';
+
+    var lineField = document.createElement('div');
+    lineField.className = 'field';
+    lineField.innerHTML = '<label>LINE ID（管理員可手動綁定/修改）</label><input type="text" class="edit-lineid" value="' + (m.lineId || '').replace(/"/g, '&quot;') + '" placeholder="留空代表未綁定">';
+
+    var btnRow = document.createElement('div');
+    btnRow.className = 'btn-row';
+
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-save';
+    saveBtn.textContent = '儲存';
+    saveBtn.onclick = function () { saveMemberEdit(m.rowNumber, editPanel); };
+
+    var deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn-delete';
+    deleteBtn.textContent = '刪除成員';
+    deleteBtn.onclick = function () { deleteMemberAction(m.rowNumber, m.name); };
+
+    btnRow.appendChild(saveBtn);
+    btnRow.appendChild(deleteBtn);
+
+    editPanel.appendChild(nameField);
+    editPanel.appendChild(lineField);
+    editPanel.appendChild(btnRow);
+
+    head.onclick = function () { editPanel.classList.toggle('open'); };
+
+    wrapper.appendChild(head);
+    wrapper.appendChild(editPanel);
+    return wrapper;
+  }
+
+  function submitAddMember() {
+    var banner = document.getElementById('membersBanner');
+    banner.className = 'banner';
+    var nameInput = document.getElementById('newMemberName');
+    var name = nameInput.value.trim();
+
+    callApi('addMember', { name: name }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      banner.className = 'banner show success';
+      banner.textContent = '✅ 已新增「' + name + '」';
+      nameInput.value = '';
+      refreshMembersList();
+      refreshSharedMemberLists();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function saveMemberEdit(rowNumber, editPanel) {
+    var banner = document.getElementById('membersBanner');
+    banner.className = 'banner';
+    var newName = editPanel.querySelector('.edit-name').value.trim();
+    var newLineId = editPanel.querySelector('.edit-lineid').value.trim();
+
+    callApi('updateMember', { rowNumber: rowNumber, newName: newName, newLineId: newLineId }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      banner.className = 'banner show success';
+      banner.textContent = '✅ 已更新成員資料';
+      refreshMembersList();
+      refreshSharedMemberLists();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function deleteMemberAction(rowNumber, name) {
+    if (!confirm('確定要刪除「' + name + '」嗎？（如果這個人還有未結清的帳目會被擋下）')) {
+      return;
+    }
+    var banner = document.getElementById('membersBanner');
+    banner.className = 'banner';
+
+    callApi('deleteMember', { rowNumber: rowNumber }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      banner.className = 'banner show success';
+      banner.textContent = '✅ 已刪除「' + name + '」';
+      refreshMembersList();
+      refreshSharedMemberLists();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function switchHistoryTab(tab) {
+    var isTx = tab === 'transactions';
+    document.getElementById('historyTabTransactions').classList.toggle('active', isTx);
+    document.getElementById('historyTabBatches').classList.toggle('active', !isTx);
+    document.getElementById('historyTransactionsPanel').style.display = isTx ? '' : 'none';
+    document.getElementById('historyBatchesPanel').style.display = isTx ? 'none' : '';
+    if (isTx) refreshHistoryTransactionList();
+    else refreshHistoryBatchList();
+  }
+
+  function refreshHistoryTransactionList() {
+    var el = document.getElementById('historyTransactionList');
+    el.innerHTML = '<div class="loading">載入中…</div>';
+
+    callApi('getRecentActivities', { limit: 30 }).then(function (res) {
+      if (!res.success) {
+        el.innerHTML = '<div class="loading">' + res.error + '</div>';
+        return;
+      }
+      renderTransactionList(el, res.activities);
+    }).catch(function (err) {
+      el.innerHTML = '<div class="loading">載入失敗：' + err.message + '</div>';
+    });
+  }
+
+  function renderTransactionList(container, activities) {
+    container.innerHTML = '';
+    if (!activities || activities.length === 0) {
+      container.innerHTML = '<div class="loading">尚無交易紀錄</div>';
+      return;
+    }
+
+    activities.forEach(function (a) {
+      var card = document.createElement('div');
+      card.className = 'history-batch-row tx-card';
+
+      var headRow = document.createElement('div');
+      headRow.className = 'tx-head';
+
+      var left = document.createElement('div');
+      var icon = a.type === 'badminton' ? '🏸' : '🧾';
+      left.innerHTML = '<div class="date">' + icon + ' ' + (a.activityName || a.date) + '</div>' +
+        '<div class="count">' + a.date + ' · ' + a.people.length + ' 人</div>';
+
+      var right = document.createElement('div');
+      right.style.cssText = 'display:flex;align-items:center;gap:8px;';
+      var total = a.type === 'badminton' ? a.totalCost : a.totalAmount;
+      var amt = document.createElement('span');
+      amt.style.cssText = 'font-weight:700;font-size:14px;color:var(--ink);';
+      amt.textContent = '$' + Math.round(total || 0).toLocaleString();
+      var chevron = document.createElement('span');
+      chevron.className = 'chevron';
+      chevron.textContent = '›';
+      right.appendChild(amt);
+      right.appendChild(chevron);
+
+      headRow.appendChild(left);
+      headRow.appendChild(right);
+      card.appendChild(headRow);
+
+      var detail = document.createElement('div');
+      detail.className = 'tx-detail';
+      a.people.forEach(function (p) {
+        var row = document.createElement('div');
+        row.className = 'tx-person-row';
+
+        var pLeft = document.createElement('div');
+        pLeft.className = 'left';
+        pLeft.appendChild(buildAvatarEl(p.name, p.avatar, 'sm'));
+        var nm = document.createElement('span');
+        nm.textContent = p.name + (p.hours !== undefined && p.hours !== null ? '（' + p.hours + 'hr）' : '');
+        pLeft.appendChild(nm);
+
+        var pAmt = document.createElement('span');
+        pAmt.className = 'amt';
+        pAmt.textContent = '$' + Math.round(p.amount || 0).toLocaleString();
+
+        row.appendChild(pLeft);
+        row.appendChild(pAmt);
+        detail.appendChild(row);
+      });
+      card.appendChild(detail);
+
+      headRow.onclick = function () {
+        detail.classList.toggle('open');
+        chevron.textContent = detail.classList.contains('open') ? '⌄' : '›';
+      };
+
+      container.appendChild(card);
+    });
+  }
+
+  function refreshHistoryBatchList() {
+    var el = document.getElementById('historyBatchList');
+    el.innerHTML = '<div class="loading">載入中…</div>';
+
+    callApi('getSettlementBatches').then(function (res) {
+      if (!res.success) {
+        el.innerHTML = '<div class="loading">' + res.error + '</div>';
+        return;
+      }
+      if (res.batches.length === 0) {
+        el.innerHTML = '<div class="loading">目前還沒有任何季度結算紀錄</div>';
+        return;
+      }
+      el.innerHTML = '';
+      res.batches.forEach(function (b) {
+        var row = document.createElement('div');
+        row.className = 'history-batch-row';
+        row.innerHTML = '<div><div class="date">' + b.date + '</div><div class="count">' + b.count + ' 位成員</div></div><span class="chevron">›</span>';
+        row.onclick = function () { openHistoryBatchDetail(b.batchId, b.date); };
+        el.appendChild(row);
+      });
+    }).catch(function (err) {
+      el.innerHTML = '<div class="loading">載入失敗：' + err.message + '</div>';
+    });
+  }
+
+  function openHistoryBatchDetail(batchId, date) {
+    document.getElementById('historyDetailTitle').textContent = date + ' 結算明細';
+    goTo('history-detail');
+
+    var el = document.getElementById('historyDetailList');
+    el.innerHTML = '<div class="loading">載入中…</div>';
+
+    callApi('getSettlementBatchDetail', { batchId: batchId }).then(function (res) {
+      if (!res.success) {
+        el.innerHTML = '<div class="loading">' + res.error + '</div>';
+        return;
+      }
+      renderHistorySuggestions(el, res.rows);
+    }).catch(function (err) {
+      el.innerHTML = '<div class="loading">載入失敗：' + err.message + '</div>';
+    });
+  }
+
+  // 把歷史快照的每人淨額，轉成「誰付給誰」的轉帳建議清單（跟結算狀況頁面同一套演算法）
+  function renderHistorySuggestions(container, rows) {
+    var owe = [], receive = [], fundOwed = [];
+    rows.forEach(function (r) {
+      if (r.net > 0) owe.push({ name: r.name, amount: Math.round(r.net), rowNumber: r.rowNumber, received: r.received, avatar: r.avatar });
+      if (r.net < 0) receive.push({ name: r.name, amount: Math.round(Math.abs(r.net)), rowNumber: r.rowNumber, received: r.received, avatar: r.avatar });
+      if (r.fundOwed > 0) fundOwed.push({ name: r.name, amount: Math.round(r.fundOwed), rowNumber: r.rowNumber, received: r.received, avatar: r.avatar });
+    });
+
+    var suggestions = computeSettlementSuggestions(owe, receive);
+    container.innerHTML = '';
+
+    if (suggestions.length === 0 && fundOwed.length === 0) {
+      container.innerHTML = '<div class="loading">這批結算沒有任何需要轉帳的項目</div>';
+      return;
+    }
+
+    suggestions.forEach(function (s) {
+      container.appendChild(buildHistorySuggestionRow(s.from, s.fromAvatar, s.to, s.toAvatar, s.amount, s.fromRowNumber, s.fromReceived));
+    });
+    fundOwed.forEach(function (f) {
+      container.appendChild(buildHistorySuggestionRow(f.name, f.avatar, '💰 羽球基金', undefined, f.amount, f.rowNumber, f.received));
+    });
+  }
+
+  function buildHistorySuggestionRow(fromName, fromAvatar, toName, toAvatar, amount, rowNumber, received) {
+    var row = document.createElement('div');
+    row.className = 'suggestion-row';
+
+    var namesDiv = buildNamesEl(fromName, fromAvatar, toName, toAvatar);
+
+    var right = document.createElement('div');
+    right.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
+    var amountSpan = document.createElement('span');
+    amountSpan.className = 'amount';
+    amountSpan.textContent = '$' + Math.round(amount).toLocaleString();
+
+    var label = document.createElement('label');
+    label.className = 'received-check';
+    var checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !!received;
+    checkbox.onchange = function () {
+      callApi('toggleSettlementReceived', { rowNumber: rowNumber, received: checkbox.checked });
+    };
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode('已收款'));
+
+    right.appendChild(amountSpan);
+    right.appendChild(label);
+    row.appendChild(namesDiv);
+    row.appendChild(right);
+    return row;
+  }
+
+  function refreshSettlementList() {
+    var summaryEl = document.getElementById('settlementSummaryList');
+    var suggestionEl = document.getElementById('settlementSuggestionList');
+    summaryEl.innerHTML = '<div class="loading">載入中…</div>';
+    suggestionEl.innerHTML = '<div class="loading">載入中…</div>';
+
+    callApi('getUnsettledList').then(function (res) {
+      if (!res.success) {
+        summaryEl.innerHTML = '<div class="loading">' + res.error + '</div>';
+        suggestionEl.innerHTML = '';
+        return;
+      }
+      renderSettlementSummary(summaryEl, res.owe, res.receive);
+      renderSettlementSuggestions(suggestionEl, res.owe, res.receive, res.fundOwed);
+    }).catch(function (err) {
+      summaryEl.innerHTML = '<div class="loading">載入失敗：' + err.message + '</div>';
+    });
+  }
+
+  function renderSettlementSummary(container, owe, receive) {
+    container.innerHTML = '';
+
+    if (owe.length === 0 && receive.length === 0) {
+      container.innerHTML = '<div class="loading">🎉 目前所有人帳目都已結清</div>';
+      return;
+    }
+
+    var card = document.createElement('div');
+    card.className = 'summary-card';
+
+    owe.forEach(function (item) {
+      card.appendChild(buildSummaryRow(item.name, item.amount, 'owe', '-$', item.avatar));
+    });
+    receive.forEach(function (item) {
+      card.appendChild(buildSummaryRow(item.name, item.amount, 'receive', '+$', item.avatar));
+    });
+
+    container.appendChild(card);
+  }
+
+  function buildSummaryRow(name, amount, type, prefix, avatar) {
+    var row = document.createElement('div');
+    row.className = 'summary-row';
+
+    var left = document.createElement('div');
+    left.style.cssText = 'display:flex;align-items:center;gap:8px;';
+    left.appendChild(buildAvatarEl(name, avatar, 'sm'));
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'name';
+    nameSpan.textContent = name;
+    left.appendChild(nameSpan);
+
+    var right = document.createElement('div');
+    right.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
+    var amountSpan = document.createElement('span');
+    amountSpan.className = 'amount ' + type;
+    amountSpan.textContent = prefix + amount.toLocaleString();
+
+    var btn = document.createElement('button');
+    btn.className = 'settle-btn';
+    btn.textContent = '結清';
+    btn.onclick = function () { settleMemberAction(name); };
+
+    right.appendChild(amountSpan);
+    right.appendChild(btn);
+    row.appendChild(left);
+    row.appendChild(right);
+    return row;
+  }
+
+  // 貪婪演算法：把欠款金額最大的人，跟該收金額最大的人配對，
+  // 反覆抵銷到雙方其中一方歸零為止，藉此把轉帳次數壓到最低
+  function computeSettlementSuggestions(owe, receive) {
+    var debtors = owe.map(function (o) { return Object.assign({}, o); }).sort(function (a, b) { return b.amount - a.amount; });
+    var creditors = receive.map(function (r) { return Object.assign({}, r); }).sort(function (a, b) { return b.amount - a.amount; });
+
+    var suggestions = [];
+    var i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      var amt = Math.min(debtors[i].amount, creditors[j].amount);
+      suggestions.push({
+        from: debtors[i].name, to: creditors[j].name, amount: amt,
+        fromRowNumber: debtors[i].rowNumber, toRowNumber: creditors[j].rowNumber,
+        fromReceived: debtors[i].received,
+        fromAvatar: debtors[i].avatar, toAvatar: creditors[j].avatar
+      });
+      debtors[i].amount -= amt;
+      creditors[j].amount -= amt;
+      if (debtors[i].amount === 0) i++;
+      if (creditors[j].amount === 0) j++;
+    }
+    return suggestions;
+  }
+
+  function renderSettlementSuggestions(container, owe, receive, fundOwed) {
+    container.innerHTML = '';
+    var suggestions = computeSettlementSuggestions(owe, receive);
+    var hasFundLines = fundOwed && fundOwed.length > 0;
+
+    if (suggestions.length === 0 && !hasFundLines) {
+      container.innerHTML = '<div class="loading">目前不需要任何轉帳</div>';
+      return;
+    }
+
+    suggestions.forEach(function (s) {
+      var row = document.createElement('div');
+      row.className = 'suggestion-row';
+
+      var namesDiv = buildNamesEl(s.from, s.fromAvatar, s.to, s.toAvatar);
+
+      var amountSpan = document.createElement('span');
+      amountSpan.className = 'amount';
+      amountSpan.textContent = '$' + Math.round(s.amount).toLocaleString();
+
+      var btn = document.createElement('button');
+      btn.className = 'settle-btn';
+      btn.textContent = '結清';
+      btn.onclick = function () { settlePairAction(s.from, s.to, s.amount, row); };
+
+      row.appendChild(namesDiv);
+      var right = document.createElement('div');
+      right.style.cssText = 'display:flex;align-items:center;gap:8px;';
+      right.appendChild(amountSpan);
+      right.appendChild(btn);
+      row.appendChild(right);
+      container.appendChild(row);
+    });
+
+    if (hasFundLines) {
+      fundOwed.forEach(function (f) {
+        var row = document.createElement('div');
+        row.className = 'suggestion-row';
+
+        var namesDiv = buildNamesEl(f.name, f.avatar, '💰 羽球基金');
+
+        var amountSpan = document.createElement('span');
+        amountSpan.className = 'amount';
+        amountSpan.textContent = '$' + Math.round(f.amount).toLocaleString();
+
+        var btn = document.createElement('button');
+        btn.className = 'settle-btn';
+        btn.textContent = '結清';
+        btn.onclick = function () { settleFundShareAction(f.name, f.amount, row); };
+
+        row.appendChild(namesDiv);
+        var right = document.createElement('div');
+        right.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        right.appendChild(amountSpan);
+        right.appendChild(btn);
+        row.appendChild(right);
+        container.appendChild(row);
+      });
+    }
+  }
+
+  function settlePairAction(fromName, toName, amount, rowEl) {
+    var banner = document.getElementById('settlementBanner');
+    banner.className = 'banner';
+    callApi('settlePair', { fromName: fromName, toName: toName, amount: amount }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      banner.className = 'banner show success';
+      banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + Math.round(amount).toLocaleString() + '」已結清';
+      refreshSettlementList();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function settleFundShareAction(name, amount, rowEl) {
+    var banner = document.getElementById('settlementBanner');
+    banner.className = 'banner';
+    callApi('settleFundShare', { name: name, amount: amount }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      banner.className = 'banner show success';
+      banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + Math.round(amount).toLocaleString() + '」已結清';
+      refreshSettlementList();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  var _quarterlySettlementPending = false;
+
+  function startQuarterlySettlement() {
+    var banner = document.getElementById('settlementBanner');
+    banner.className = 'banner';
+
+    if (!_quarterlySettlementPending) {
+      callApi('quarterlySettlement', { confirm: false }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        if (res.count === 0) {
+          banner.className = 'banner show success';
+          banner.textContent = '目前沒有任何人有未結清的帳目，不需要季度結算。';
+          return;
+        }
+        _quarterlySettlementPending = true;
+        banner.className = 'banner show error';
+        banner.textContent = '⚠️ 即將把 ' + res.count + ' 位成員的帳目存檔並全部歸零，此動作無法復原。再按一次「季度結算」按鈕確認執行。';
+      }).catch(function (err) {
+        banner.className = 'banner show error';
+        banner.textContent = '系統錯誤：' + err.message;
+      });
+      return;
+    }
+
+    // 第二次按下，正式執行
+    _quarterlySettlementPending = false;
+    callApi('quarterlySettlement', { confirm: true }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      banner.className = 'banner show success';
+      banner.textContent = '✅ 季度結算完成，共處理 ' + res.count + ' 位成員，已存入歷史紀錄（' + res.date + '）';
+      refreshSettlementList();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function settleMemberAction(name) {
+    var banner = document.getElementById('settlementBanner');
+    banner.className = 'banner';
+
+    callApi('settleMember', { name: name }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      banner.className = 'banner show success';
+      banner.textContent = '✅ 「' + name + '」已結清';
+      refreshSettlementList();
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function submitOutingForm() {
+    document.getElementById('outingBanner').className = 'banner';
+
+    var activityName = document.getElementById('outingActivityName').value.trim();
+
+    if (outingPayerEntries.length === 0) {
+      var b = document.getElementById('outingBanner');
+      b.className = 'banner show error';
+      b.textContent = '請至少新增一筆墊款紀錄';
+      return;
+    }
+
+    var participants = collectCheckedOptional('outingParticipantList').data;
+    if (participants.length === 0) {
+      var b2 = document.getElementById('outingBanner');
+      b2.className = 'banner show error';
+      b2.textContent = '請至少勾選一位參加者';
+      return;
+    }
+
+    var payload = {
+      activityName: activityName,
+      payerEntries: outingPayerEntries,
+      participants: participants
+    };
+
+    var btn = document.getElementById('outingSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = '送出中…';
+
+    callApi('submitOutingFormV2', payload).then(function (res) {
+      btn.disabled = false;
+      btn.textContent = '送出記帳';
+
+      if (!res.success) {
+        var b3 = document.getElementById('outingBanner');
+        b3.className = 'banner show error';
+        b3.textContent = res.error;
+        return;
+      }
+
+      var detailLines = res.participants.map(function (p) { return p.name + '：$' + p.amount; });
+      if (res.payers && res.payers.length > 0) {
+        detailLines.push('墊款：' + res.payers.map(function (p) { return p.name + ' $' + p.amount; }).join('、'));
+      }
+      renderRecentActivity('🧾 ' + res.activityName, res.totalAmount, detailLines);
+
+      document.getElementById('outingActivityName').value = '';
+      outingPayerEntries = [];
+      renderOutingPayerEntryList();
+      renderMemberList('outingParticipantList', 'outing');
+
+      goTo('home');
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = '送出記帳';
+      var b4 = document.getElementById('outingBanner');
+      b4.className = 'banner show error';
+      b4.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function submitBadmintonForm() {
+    hideBanner();
+
+    var fundOn = document.getElementById('fundToggle').checked;
+    var selfBallOn = document.getElementById('selfBallToggle').checked;
+
+    if (selfBallOn && selfBallEntries.length === 0) {
+      showBanner('error', '自備球已勾選啟用，但還沒新增任何紀錄');
+      return;
+    }
+    if (venueEntries.length === 0 && !fundOn && !selfBallOn) {
+      showBanner('error', '場地費、羽球基金、自備球至少要有一項有金額');
+      return;
+    }
+
+    var attendeesResult = collectChecked('attendeeList');
+    if (attendeesResult.error) { showBanner('error', attendeesResult.error); return; }
+    if (attendeesResult.data.length === 0) { showBanner('error', '請至少勾選一位出席者'); return; }
+
+    var payload = {
+      activityName: document.getElementById('activityName').value.trim(),
+      venueEntries: venueEntries,
+      fundRatePerHr: fundOn ? (document.getElementById('fundRate').value || 0) : 0,
+      selfBallEntries: selfBallOn ? selfBallEntries : [],
+      attendees: attendeesResult.data
+    };
+
+    var btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '送出中…';
+
+    callApi('submitBadmintonFormV2', payload).then(function (res) {
+      btn.disabled = false;
+      btn.textContent = '送出記帳';
+
+      if (!res.success) { showBanner('error', res.error); return; }
+
+      var detailLines = res.attendees.map(function (a) {
+        return a.name + '：' + a.hours + 'hr → $' + a.amount + '（場地+自備球 $' + a.fixedShare + ' / 基金 $' + a.fundShare + '）';
+      });
+      if (res.payers && res.payers.length > 0) {
+        detailLines.push('墊款：' + res.payers.map(function (p) { return p.name + ' $' + p.amount; }).join('、'));
+      }
+      if (res.fundWarning) {
+        detailLines.push(res.fundWarning);
+      }
+
+      renderRecentActivity('🏸 ' + res.activityName, res.totalCost, detailLines);
+
+      venueEntries = [];
+      selfBallEntries = [];
+      document.getElementById('activityName').value = '';
+      renderEntryList('venue');
+      renderEntryList('selfBall');
+      document.getElementById('fundToggle').checked = false;
+      document.getElementById('selfBallToggle').checked = false;
+      toggleSection('fund');
+      toggleSection('selfBall');
+      document.getElementById('fundRate').value = settings.fundRateDefault || '';
+      renderMemberList('attendeeList', 'attendee');
+      updateScoreboard();
+
+      callApi('getFundBalance').then(function (fundRes) {
+        document.getElementById('fundBalanceDisplay').textContent = '$' + Math.round(fundRes.balance || 0).toLocaleString();
+      });
+
+      goTo('home');
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = '送出記帳';
+      showBanner('error', '系統錯誤：' + err.message);
+    });
+  }
+
+  callApi('getHomeData').then(function (res) {
+    settings = res.settings || {};
+    members = res.members || [];
+
+    document.getElementById('venueRateInput').value = settings.venueFeeDefault || '';
+    document.getElementById('fundRate').value = settings.fundRateDefault || '';
+
+    document.getElementById('fundBalanceDisplay').textContent = '$' + Math.round(res.fundBalance || 0).toLocaleString();
+
+    populatePayerSelects();
+    renderMemberList('attendeeList', 'attendee');
+    renderMemberList('outingParticipantList', 'outing');
+    updateScoreboard();
+  }).catch(function (err) {
+    document.getElementById('fundBalanceDisplay').textContent = '載入失敗';
+    document.getElementById('attendeeList').innerHTML = '<div class="loading">載入失敗：' + err.message + '</div>';
+  });
+</script>
+
+</body>
+</html>

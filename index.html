@@ -860,7 +860,7 @@
     </section>
 
     <section>
-      <h2>新增預約</h2>
+      <h2 id="venueFormTitle">新增預約</h2>
       <div class="field-row">
         <div class="field">
           <label>日期（MM/DD）</label>
@@ -875,7 +875,8 @@
         <label>備註（選填）</label>
         <input type="text" id="venueNote" placeholder="例如：樂活館搶到的場地">
       </div>
-      <button type="button" class="primary-btn" onclick="submitVenueBooking()">新增預約</button>
+      <button type="button" class="primary-btn" id="venueSubmitBtn" onclick="submitVenueBooking()">新增預約</button>
+      <button type="button" class="edit-link-btn" id="venueCancelEditBtn" style="display:none;margin-top:8px;" onclick="cancelVenueEdit()">取消編輯</button>
     </section>
   </main>
 </div>
@@ -995,6 +996,33 @@
       <div class="field" id="editFundRateField" style="margin-bottom:10px;display:none;">
         <label>羽球基金費率 / hr（留空或 0 表示不計費）</label>
         <input type="number" id="editFundRate" inputmode="decimal">
+      </div>
+      <p class="hint" id="editPoolLockedNote" style="display:none;">此筆是功能更新前建立的舊資料，金額與墊款人無法編輯，只能改活動名稱與出席者/參加者名單</p>
+      <div id="editPoolSection" style="display:none;">
+        <div class="field" id="editVenueTotalField" style="margin-bottom:10px;">
+          <label>場地費小計</label>
+          <input type="number" id="editVenueTotal" inputmode="decimal">
+        </div>
+        <div class="field" id="editSelfBallTotalField" style="margin-bottom:10px;">
+          <label>自備球小計</label>
+          <input type="number" id="editSelfBallTotal" inputmode="decimal">
+        </div>
+        <div class="field" id="editTotalAmountField" style="margin-bottom:10px;display:none;">
+          <label>總金額</label>
+          <input type="number" id="editTotalAmount" inputmode="decimal">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>墊款金額</label>
+            <input type="number" id="editPayerAmountInput" inputmode="decimal" placeholder="0">
+          </div>
+          <div class="field">
+            <label>墊款人</label>
+            <select id="editPayerInput"></select>
+          </div>
+        </div>
+        <button type="button" class="add-entry-btn" onclick="addEditPayerEntry()">+ 新增墊款人</button>
+        <div id="editPayerEntryList" class="entry-list"></div>
       </div>
       <h2 id="editListLabel" style="font-size:14px;">出席者與時數</h2>
       <div id="editMemberList" class="member-list"><div class="loading">載入中…</div></div>
@@ -1439,7 +1467,7 @@
   }
 
   function populatePayerSelects() {
-    ['venuePayerInput', 'selfBallPayerInput', 'outingPayerInput', 'depositPerson', 'returnPerson'].forEach(function (id) {
+    ['venuePayerInput', 'selfBallPayerInput', 'outingPayerInput', 'editPayerInput', 'depositPerson', 'returnPerson'].forEach(function (id) {
       var select = document.getElementById(id);
       select.innerHTML = '';
       members.forEach(function (name) {
@@ -1621,6 +1649,44 @@
     return { data: result };
   }
 
+  var editPayerEntries = [];
+
+  function addEditPayerEntry() {
+    var amount = parseFloat(document.getElementById('editPayerAmountInput').value);
+    var payer = document.getElementById('editPayerInput').value;
+    var banner = document.getElementById('editModalBanner');
+    if (isNaN(amount) || amount <= 0 || !payer) {
+      banner.className = 'banner show error';
+      banner.textContent = '請把墊款金額、墊款人都填完整再新增';
+      return;
+    }
+    editPayerEntries.push({ amount: amount, payerName: payer });
+    document.getElementById('editPayerAmountInput').value = '';
+    banner.className = 'banner';
+    renderEditPayerEntryList();
+  }
+
+  function removeEditPayerEntry(index) {
+    editPayerEntries.splice(index, 1);
+    renderEditPayerEntryList();
+  }
+
+  function renderEditPayerEntryList() {
+    var container = document.getElementById('editPayerEntryList');
+    container.innerHTML = '';
+    editPayerEntries.forEach(function (entry, i) {
+      var row = document.createElement('div');
+      row.className = 'entry-item';
+      row.innerHTML = '<span>$' + entry.amount + '（' + entry.payerName + '）</span>';
+      var btn = document.createElement('button');
+      btn.className = 'remove-btn';
+      btn.textContent = '×';
+      btn.onclick = function () { removeEditPayerEntry(i); };
+      row.appendChild(btn);
+      container.appendChild(row);
+    });
+  }
+
   var outingPayerEntries = [];
 
   function addOutingPayerEntry() {
@@ -1731,18 +1797,52 @@
         left.innerHTML = '<div class="date">' + b.dateLabel + '（' + b.weekday + '）' + b.timeStr + '</div>' +
           '<div class="count">' + (b.note ? b.note + '　' : '') + b.registrant + ' 登記</div>';
 
+        var btnGroup = document.createElement('div');
+        btnGroup.style.cssText = 'display:flex;gap:6px;';
+
+        var editBtn = document.createElement('button');
+        editBtn.className = 'settle-btn';
+        editBtn.textContent = '編輯';
+        editBtn.onclick = function () { startVenueEdit(b); };
+
         var delBtn = document.createElement('button');
         delBtn.className = 'settle-btn';
         delBtn.textContent = '刪除';
         delBtn.onclick = function () { deleteVenueBookingAction(b.rowNumber); };
 
+        btnGroup.appendChild(editBtn);
+        btnGroup.appendChild(delBtn);
         row.appendChild(left);
-        row.appendChild(delBtn);
+        row.appendChild(btnGroup);
         el.appendChild(row);
       });
     }).catch(function (err) {
       el.innerHTML = '<div class="loading">載入失敗：' + err.message + '</div>';
     });
+  }
+
+  var _editingVenueRow = null;
+
+  function startVenueEdit(booking) {
+    _editingVenueRow = booking.rowNumber;
+    document.getElementById('venueDate').value = booking.dateLabel;
+    document.getElementById('venueTime').value = booking.timeStr || '';
+    document.getElementById('venueNote').value = booking.note || '';
+    document.getElementById('venueFormTitle').textContent = '編輯預約';
+    document.getElementById('venueSubmitBtn').textContent = '儲存修改';
+    document.getElementById('venueCancelEditBtn').style.display = 'inline-block';
+    document.getElementById('venueBanner').className = 'banner';
+    document.getElementById('venueDate').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function cancelVenueEdit() {
+    _editingVenueRow = null;
+    document.getElementById('venueDate').value = '';
+    document.getElementById('venueTime').value = '';
+    document.getElementById('venueNote').value = '';
+    document.getElementById('venueFormTitle').textContent = '新增預約';
+    document.getElementById('venueSubmitBtn').textContent = '新增預約';
+    document.getElementById('venueCancelEditBtn').style.display = 'none';
   }
 
   function submitVenueBooking() {
@@ -1756,17 +1856,24 @@
       lineUserId: myLineUserId
     };
 
-    callApi('addVenueBooking', payload).then(function (res) {
+    var isEditing = !!_editingVenueRow;
+    var apiCall;
+    if (isEditing) {
+      payload.rowNumber = _editingVenueRow;
+      apiCall = callApi('updateVenueBooking', payload);
+    } else {
+      apiCall = callApi('addVenueBooking', payload);
+    }
+
+    apiCall.then(function (res) {
       if (!res.success) {
         banner.className = 'banner show error';
         banner.textContent = res.error;
         return;
       }
       banner.className = 'banner show success';
-      banner.textContent = '✅ 已登記場地預約';
-      document.getElementById('venueDate').value = '';
-      document.getElementById('venueTime').value = '';
-      document.getElementById('venueNote').value = '';
+      banner.textContent = isEditing ? '✅ 已更新場地預約' : '✅ 已登記場地預約';
+      cancelVenueEdit();
       refreshVenueList();
     }).catch(function (err) {
       banner.className = 'banner show error';
@@ -2078,13 +2185,16 @@
     });
   }
 
-  // 編輯活動：只能改活動名稱、出席者/參加者名單與各自的時數或金額，不能改場地費/自備球/
-  // 總金額/墊款人（那些牽動到墊款流水帳，目前沒有活動ID可以精準對應回去修改，見後端註解）
+  // 編輯活動：活動名稱、出席者/參加者名單與各自的時數或金額一律可改；場地費/自備球/總金額/
+  // 墊款人只有在後端判斷 canEditPool 為 true（這場活動的墊款紀錄有存活動ID可以精準對應回去）
+  // 時才開放編輯，見 getActivityDetailForLiff／updateBadmintonActivityForLiff／
+  // updateOutingActivityForLiff 的後端註解。
   var _editContext = null;
 
   function openEditActivity(type, activityId) {
     if (!activityId) return;
-    _editContext = { type: type, activityId: activityId };
+    _editContext = { type: type, activityId: activityId, canEditPool: false };
+    editPayerEntries = [];
 
     var banner = document.getElementById('editModalBanner');
     banner.className = 'banner';
@@ -2093,6 +2203,15 @@
     document.getElementById('editListLabel').textContent = type === 'badminton' ? '出席者與時數' : '參加者與金額（留白＝均分剩餘金額）';
     document.getElementById('editActivityName').value = '';
     document.getElementById('editFundRate').value = '';
+    document.getElementById('editVenueTotal').value = '';
+    document.getElementById('editSelfBallTotal').value = '';
+    document.getElementById('editTotalAmount').value = '';
+    document.getElementById('editPoolSection').style.display = 'none';
+    document.getElementById('editPoolLockedNote').style.display = 'none';
+    document.getElementById('editVenueTotalField').style.display = type === 'badminton' ? 'block' : 'none';
+    document.getElementById('editSelfBallTotalField').style.display = type === 'badminton' ? 'block' : 'none';
+    document.getElementById('editTotalAmountField').style.display = type === 'badminton' ? 'none' : 'block';
+    renderEditPayerEntryList();
     document.getElementById('editMemberList').innerHTML = '<div class="loading">載入中…</div>';
     document.getElementById('editActivityModal').classList.add('show');
 
@@ -2103,11 +2222,22 @@
         return;
       }
       document.getElementById('editActivityName').value = res.activityName || '';
+      _editContext.canEditPool = !!res.canEditPool;
+      if (res.canEditPool) {
+        document.getElementById('editPoolSection').style.display = 'block';
+        editPayerEntries = (res.payers || []).map(function (p) { return { amount: p.amount, payerName: p.name }; });
+        renderEditPayerEntryList();
+      } else {
+        document.getElementById('editPoolLockedNote').style.display = 'block';
+      }
       if (type === 'badminton') {
         document.getElementById('editFundRate').value = res.fundRatePerHr || '';
+        document.getElementById('editVenueTotal').value = res.venueTotal || 0;
+        document.getElementById('editSelfBallTotal').value = res.selfBallTotal || 0;
         renderMemberList('editMemberList', 'attendee');
         restoreCheckedSelection('editMemberList', res.attendees, 'hours');
       } else {
+        document.getElementById('editTotalAmount').value = res.totalAmount || 0;
         renderMemberList('editMemberList', 'outing');
         restoreCheckedSelection('editMemberList', res.participants, 'amount');
       }
@@ -2120,6 +2250,7 @@
   function closeEditModal() {
     document.getElementById('editActivityModal').classList.remove('show');
     _editContext = null;
+    editPayerEntries = [];
   }
 
   function refreshAfterActivityEdit() {
@@ -2146,6 +2277,20 @@
         fundRatePerHr: document.getElementById('editFundRate').value || 0,
         attendees: result.data
       };
+      if (_editContext.canEditPool) {
+        var poolSum = editPayerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0);
+        var venueTotal = Number(document.getElementById('editVenueTotal').value) || 0;
+        var selfBallTotal = Number(document.getElementById('editSelfBallTotal').value) || 0;
+        if ((venueTotal + selfBallTotal) > 0 && editPayerEntries.length === 0) {
+          banner.className = 'banner show error'; banner.textContent = '場地費/自備球有金額，請至少新增一位墊款人'; return;
+        }
+        if (Math.abs(poolSum - (venueTotal + selfBallTotal)) > 1) {
+          banner.className = 'banner show error'; banner.textContent = '墊款人金額總和跟場地費+自備球小計對不起來，請確認金額'; return;
+        }
+        payload.venueTotal = venueTotal;
+        payload.selfBallTotal = selfBallTotal;
+        payload.payers = editPayerEntries.map(function (e) { return { name: e.payerName, amount: e.amount }; });
+      }
       btn.disabled = true; btn.textContent = '儲存中…';
       callApi('updateBadmintonActivity', payload).then(function (res) {
         btn.disabled = false; btn.textContent = '儲存修改';
@@ -2166,6 +2311,18 @@
         activityName: activityName,
         participants: result2.data
       };
+      if (_editContext.canEditPool) {
+        var poolSum2 = editPayerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0);
+        var totalAmount2 = Number(document.getElementById('editTotalAmount').value) || 0;
+        if (totalAmount2 > 0 && editPayerEntries.length === 0) {
+          banner.className = 'banner show error'; banner.textContent = '總金額大於 0，請至少新增一位墊款人'; return;
+        }
+        if (Math.abs(poolSum2 - totalAmount2) > 1) {
+          banner.className = 'banner show error'; banner.textContent = '墊款人金額總和跟總金額對不起來，請確認金額'; return;
+        }
+        payload2.totalAmount = totalAmount2;
+        payload2.payers = editPayerEntries.map(function (e) { return { name: e.payerName, amount: e.amount }; });
+      }
       btn.disabled = true; btn.textContent = '儲存中…';
       callApi('updateOutingActivity', payload2).then(function (res) {
         btn.disabled = false; btn.textContent = '儲存修改';

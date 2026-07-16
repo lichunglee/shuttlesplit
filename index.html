@@ -606,7 +606,7 @@
         </div>
       </div>
 
-      <button type="button" class="primary-btn" onclick="submitBinding()">確認是我</button>
+      <button type="button" class="primary-btn" onclick="submitBinding(this)">確認是我</button>
       <button type="button" onclick="skipBinding()" style="width:100%;background:none;border:none;color:var(--ink-soft);font-size:13px;padding:10px 0 0;font-family:'Inter',sans-serif;">略過，之後再說</button>
     </section>
 
@@ -812,7 +812,7 @@
           <select id="depositPerson"></select>
         </div>
       </div>
-      <button type="button" class="primary-btn" onclick="submitFundAction('deposit')">存入</button>
+      <button type="button" class="primary-btn" onclick="submitFundAction('deposit', this)">存入</button>
     </section>
 
     <section>
@@ -825,7 +825,7 @@
         <label>用途說明</label>
         <input type="text" id="purchaseNote" placeholder="例如：購買羽球 10桶">
       </div>
-      <button type="button" class="primary-btn" onclick="submitFundAction('purchase')">登記支出</button>
+      <button type="button" class="primary-btn" onclick="submitFundAction('purchase', this)">登記支出</button>
     </section>
 
     <section>
@@ -841,7 +841,7 @@
         </div>
       </div>
       <p class="hint">備註會自動寫成「歸還OO代墊購球款」，不用手動打字</p>
-      <button type="button" class="primary-btn" onclick="submitFundAction('return')">登記歸還</button>
+      <button type="button" class="primary-btn" onclick="submitFundAction('return', this)">登記歸還</button>
     </section>
   </main>
 </div>
@@ -909,7 +909,7 @@
           <input type="text" id="venueRecurNote" placeholder="例如：樂活館">
         </div>
       </div>
-      <button type="button" class="primary-btn" onclick="submitRecurringVenueBooking()">登記整季</button>
+      <button type="button" class="primary-btn" onclick="submitRecurringVenueBooking(this)">登記整季</button>
     </section>
   </main>
 </div>
@@ -935,7 +935,7 @@
     <section style="border-color:var(--error);">
       <h2 style="color:var(--error);">⚠️ 季度結算</h2>
       <p class="hint">把所有人目前的帳目存快照、全部歸零，開啟新一季。此動作無法復原，請確認大家都已經處理完這季的款項再執行。</p>
-      <button type="button" class="primary-btn" style="background:var(--error);" onclick="startQuarterlySettlement()">季度結算</button>
+      <button type="button" class="primary-btn" style="background:var(--error);" onclick="startQuarterlySettlement(this)">季度結算</button>
     </section>
   </main>
 </div>
@@ -992,7 +992,7 @@
           <input type="text" id="newMemberName" placeholder="輸入姓名">
         </div>
       </div>
-      <button type="button" class="primary-btn" onclick="submitAddMember()">新增</button>
+      <button type="button" class="primary-btn" onclick="submitAddMember(this)">新增</button>
     </section>
 
     <section>
@@ -1287,24 +1287,26 @@
     }
   }
 
-  function quickBindMember(name) {
+  function quickBindMember(name, btn) {
     var banner = document.getElementById('membersBanner');
     banner.className = 'banner';
-    callApi('bindMyLineId', { name: name, lineUserId: myLineUserId, pictureUrl: myPictureUrl }).then(function (res) {
-      if (!res.success) {
+    withBusyButton(btn, '處理中…', function () {
+      return callApi('bindMyLineId', { name: name, lineUserId: myLineUserId, pictureUrl: myPictureUrl }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        myBoundName = res.name;
+        banner.className = 'banner show success';
+        banner.textContent = '✅ 已認領「' + res.name + '」，之後開啟表單會記得你是誰';
+        document.getElementById('bindingPrompt').style.display = 'none';
+        refreshMembersList();
+        refreshSharedMemberLists();
+      }).catch(function (err) {
         banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      myBoundName = res.name;
-      banner.className = 'banner show success';
-      banner.textContent = '✅ 已認領「' + res.name + '」，之後開啟表單會記得你是誰';
-      document.getElementById('bindingPrompt').style.display = 'none';
-      refreshMembersList();
-      refreshSharedMemberLists();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
+        banner.textContent = '系統錯誤：' + err.message;
+      });
     });
   }
 
@@ -1313,7 +1315,7 @@
     document.getElementById('bindNewFields').style.display = mode === 'new' ? 'block' : 'none';
   }
 
-  function submitBinding() {
+  function submitBinding(btn) {
     var banner = document.getElementById('homeBanner');
     banner.className = 'banner';
 
@@ -1332,12 +1334,14 @@
         banner.textContent = '請選擇一個名字';
         return;
       }
-      callApi('bindMyLineId', { name: name, lineUserId: myLineUserId, pictureUrl: myPictureUrl })
-        .then(function (res) { handleBindingResult(res, banner); })
-        .catch(function (err) {
-          banner.className = 'banner show error';
-          banner.textContent = '系統錯誤：' + err.message;
-        });
+      withBusyButton(btn, '處理中…', function () {
+        return callApi('bindMyLineId', { name: name, lineUserId: myLineUserId, pictureUrl: myPictureUrl })
+          .then(function (res) { handleBindingResult(res, banner); })
+          .catch(function (err) {
+            banner.className = 'banner show error';
+            banner.textContent = '系統錯誤：' + err.message;
+          });
+      });
     } else {
       var newName = document.getElementById('bindNewName').value.trim();
       if (!newName) {
@@ -1345,12 +1349,14 @@
         banner.textContent = '請輸入你的名字';
         return;
       }
-      callApi('addAndBindMember', { name: newName, lineUserId: myLineUserId, pictureUrl: myPictureUrl })
-        .then(function (res) { handleBindingResult(res, banner); })
-        .catch(function (err) {
-          banner.className = 'banner show error';
-          banner.textContent = '系統錯誤：' + err.message;
-        });
+      withBusyButton(btn, '處理中…', function () {
+        return callApi('addAndBindMember', { name: newName, lineUserId: myLineUserId, pictureUrl: myPictureUrl })
+          .then(function (res) { handleBindingResult(res, banner); })
+          .catch(function (err) {
+            banner.className = 'banner show error';
+            banner.textContent = '系統錯誤：' + err.message;
+          });
+      });
     }
   }
 
@@ -1445,6 +1451,35 @@
     window.scrollTo(0, 0);
   }
   function hideBanner() { document.getElementById('banner').className = 'banner'; }
+
+  // 防止手滑/網路延遲時同一顆按鈕被連按兩下，同一筆資料被送出兩次：
+  // 點下當下立刻鎖住按鈕＋換成處理中文字，fn() 回傳的 promise 結束（不論成功/失敗）才解鎖。
+  // btn 可以是 null（例如自動觸發、沒有對應按鈕的流程），這種情況只是不做鎖定，其餘行為不變。
+  function withBusyButton(btn, busyText, fn) {
+    if (btn) {
+      if (btn.disabled) return; // 已經在處理中，忽略這次點擊
+      var originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = busyText;
+    }
+    function restore() {
+      if (!btn) return;
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+    var result;
+    try {
+      result = fn();
+    } catch (e) {
+      restore();
+      throw e;
+    }
+    if (result && typeof result.then === 'function') {
+      result.then(restore, restore);
+    } else {
+      restore();
+    }
+  }
 
   // 產生頭像元素：有 LINE 頭像網址就用 <img>，沒有就用姓名第一個字的圓形色塊當 fallback
   // （大部分舊資料還沒重新綁定過，不會有頭像，這個 fallback 讓畫面不會空一塊）
@@ -1798,7 +1833,7 @@
     document.getElementById('outingTotalDisplay').textContent = '$' + Math.round(total).toLocaleString();
   }
 
-  function submitFundAction(action) {
+  function submitFundAction(action, btn) {
     var banner = document.getElementById('fundBanner');
     banner.className = 'banner';
 
@@ -1819,23 +1854,25 @@
     payload.amount = document.getElementById(amountFieldId).value;
 
     payload.txAction = action;
-    callApi('submitFundTransaction', payload).then(function (res) {
-      if (!res.success) {
+    withBusyButton(btn, '處理中…', function () {
+      return callApi('submitFundTransaction', payload).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        banner.className = 'banner show success';
+        banner.textContent = '✅ ' + res.note + '，目前餘額 $' + Math.round(res.newBalance).toLocaleString();
+
+        document.getElementById(amountFieldId).value = '';
+        if (action === 'purchase') document.getElementById('purchaseNote').value = '';
+
+        document.getElementById('fundPageBalanceDisplay').textContent = '$' + Math.round(res.newBalance).toLocaleString();
+        document.getElementById('fundBalanceDisplay').textContent = '$' + Math.round(res.newBalance).toLocaleString();
+      }).catch(function (err) {
         banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      banner.className = 'banner show success';
-      banner.textContent = '✅ ' + res.note + '，目前餘額 $' + Math.round(res.newBalance).toLocaleString();
-
-      document.getElementById(amountFieldId).value = '';
-      if (action === 'purchase') document.getElementById('purchaseNote').value = '';
-
-      document.getElementById('fundPageBalanceDisplay').textContent = '$' + Math.round(res.newBalance).toLocaleString();
-      document.getElementById('fundBalanceDisplay').textContent = '$' + Math.round(res.newBalance).toLocaleString();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
+        banner.textContent = '系統錯誤：' + err.message;
+      });
     });
   }
 
@@ -1878,7 +1915,7 @@
         var delBtn = document.createElement('button');
         delBtn.className = 'settle-btn';
         delBtn.textContent = '刪除';
-        delBtn.onclick = function () { deleteVenueBookingAction(b.rowNumber); };
+        delBtn.onclick = function () { deleteVenueBookingAction(b.rowNumber, delBtn); };
 
         btnGroup.appendChild(editBtn);
         btnGroup.appendChild(delBtn);
@@ -1918,6 +1955,8 @@
   function submitVenueBooking() {
     var banner = document.getElementById('venueBanner');
     banner.className = 'banner';
+    var btn = document.getElementById('venueSubmitBtn');
+    if (btn.disabled) return; // 已經在處理中，忽略這次點擊
 
     var payload = {
       dateStr: document.getElementById('venueDate').value.trim(),
@@ -1927,6 +1966,11 @@
     };
 
     var isEditing = !!_editingVenueRow;
+    var busyText = isEditing ? '儲存中…' : '送出中…';
+    var originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = busyText;
+
     var apiCall;
     if (isEditing) {
       payload.rowNumber = _editingVenueRow;
@@ -1943,15 +1987,19 @@
       }
       banner.className = 'banner show success';
       banner.textContent = isEditing ? '✅ 已更新場地預約' : '✅ 已登記場地預約';
-      cancelVenueEdit();
+      cancelVenueEdit(); // 成功時會自己把按鈕文字重設回「新增預約」，下面不要再蓋過去
       refreshVenueList();
     }).catch(function (err) {
       banner.className = 'banner show error';
       banner.textContent = '系統錯誤：' + err.message;
+    }).then(function () {
+      btn.disabled = false;
+      // 只有還停在「送出中…/儲存中…」（代表失敗、沒有被 cancelVenueEdit() 改掉）才需要復原文字
+      if (btn.textContent === busyText) btn.textContent = originalText;
     });
   }
 
-  function submitRecurringVenueBooking() {
+  function submitRecurringVenueBooking(btn) {
     var banner = document.getElementById('venueBanner');
     banner.className = 'banner';
 
@@ -1966,36 +2014,40 @@
       banner.className = 'banner show error'; banner.textContent = '請輸入時段'; return;
     }
 
-    callApi('addRecurringVenueBooking', payload).then(function (res) {
-      if (!res.success) {
+    withBusyButton(btn, '登記中…', function () {
+      return callApi('addRecurringVenueBooking', payload).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        banner.className = 'banner show success';
+        banner.textContent = '✅ 已登記 ' + res.count + ' 筆固定場地';
+        document.getElementById('venueRecurTime').value = '';
+        document.getElementById('venueRecurCount').value = '';
+        document.getElementById('venueRecurNote').value = '';
+        refreshVenueList();
+      }).catch(function (err) {
         banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      banner.className = 'banner show success';
-      banner.textContent = '✅ 已登記 ' + res.count + ' 筆固定場地';
-      document.getElementById('venueRecurTime').value = '';
-      document.getElementById('venueRecurCount').value = '';
-      document.getElementById('venueRecurNote').value = '';
-      refreshVenueList();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
+        banner.textContent = '系統錯誤：' + err.message;
+      });
     });
   }
 
-  function deleteVenueBookingAction(rowNumber) {
+  function deleteVenueBookingAction(rowNumber, btn) {
     var banner = document.getElementById('venueBanner');
-    callApi('deleteVenueBooking', { rowNumber: rowNumber }).then(function (res) {
-      if (!res.success) {
+    withBusyButton(btn, '刪除中…', function () {
+      return callApi('deleteVenueBooking', { rowNumber: rowNumber }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        refreshVenueList();
+      }).catch(function (err) {
         banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      refreshVenueList();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
+        banner.textContent = '系統錯誤：' + err.message;
+      });
     });
   }
 
@@ -2062,7 +2114,7 @@
       bindBtn.onclick = function (ev) {
         ev.stopPropagation();
         if (myLineUserId) {
-          quickBindMember(m.name);
+          quickBindMember(m.name, bindBtn);
           return;
         }
         if (!triggerLineLogin('bind=' + encodeURIComponent(m.name))) {
@@ -2094,12 +2146,12 @@
     var saveBtn = document.createElement('button');
     saveBtn.className = 'btn-save';
     saveBtn.textContent = '儲存';
-    saveBtn.onclick = function () { saveMemberEdit(m.rowNumber, editPanel); };
+    saveBtn.onclick = function () { saveMemberEdit(m.rowNumber, editPanel, saveBtn); };
 
     var deleteBtn = document.createElement('button');
     deleteBtn.className = 'btn-delete';
     deleteBtn.textContent = '刪除成員';
-    deleteBtn.onclick = function () { deleteMemberAction(m.rowNumber, m.name); };
+    deleteBtn.onclick = function () { deleteMemberAction(m.rowNumber, m.name, deleteBtn); };
 
     btnRow.appendChild(saveBtn);
     btnRow.appendChild(deleteBtn);
@@ -2115,71 +2167,77 @@
     return wrapper;
   }
 
-  function submitAddMember() {
+  function submitAddMember(btn) {
     var banner = document.getElementById('membersBanner');
     banner.className = 'banner';
     var nameInput = document.getElementById('newMemberName');
     var name = nameInput.value.trim();
 
-    callApi('addMember', { name: name }).then(function (res) {
-      if (!res.success) {
+    withBusyButton(btn, '新增中…', function () {
+      return callApi('addMember', { name: name }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        banner.className = 'banner show success';
+        banner.textContent = '✅ 已新增「' + name + '」';
+        nameInput.value = '';
+        refreshMembersList();
+        refreshSharedMemberLists();
+      }).catch(function (err) {
         banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      banner.className = 'banner show success';
-      banner.textContent = '✅ 已新增「' + name + '」';
-      nameInput.value = '';
-      refreshMembersList();
-      refreshSharedMemberLists();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
+        banner.textContent = '系統錯誤：' + err.message;
+      });
     });
   }
 
-  function saveMemberEdit(rowNumber, editPanel) {
+  function saveMemberEdit(rowNumber, editPanel, btn) {
     var banner = document.getElementById('membersBanner');
     banner.className = 'banner';
     var newName = editPanel.querySelector('.edit-name').value.trim();
     var newLineId = editPanel.querySelector('.edit-lineid').value.trim();
 
-    callApi('updateMember', { rowNumber: rowNumber, newName: newName, newLineId: newLineId }).then(function (res) {
-      if (!res.success) {
+    withBusyButton(btn, '儲存中…', function () {
+      return callApi('updateMember', { rowNumber: rowNumber, newName: newName, newLineId: newLineId }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        banner.className = 'banner show success';
+        banner.textContent = '✅ 已更新成員資料';
+        refreshMembersList();
+        refreshSharedMemberLists();
+      }).catch(function (err) {
         banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      banner.className = 'banner show success';
-      banner.textContent = '✅ 已更新成員資料';
-      refreshMembersList();
-      refreshSharedMemberLists();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
+        banner.textContent = '系統錯誤：' + err.message;
+      });
     });
   }
 
-  function deleteMemberAction(rowNumber, name) {
+  function deleteMemberAction(rowNumber, name, btn) {
     if (!confirm('確定要刪除「' + name + '」嗎？（如果這個人還有未結清的帳目會被擋下）')) {
       return;
     }
     var banner = document.getElementById('membersBanner');
     banner.className = 'banner';
 
-    callApi('deleteMember', { rowNumber: rowNumber }).then(function (res) {
-      if (!res.success) {
+    withBusyButton(btn, '刪除中…', function () {
+      return callApi('deleteMember', { rowNumber: rowNumber }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        banner.className = 'banner show success';
+        banner.textContent = '✅ 已刪除「' + name + '」';
+        refreshMembersList();
+        refreshSharedMemberLists();
+      }).catch(function (err) {
         banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      banner.className = 'banner show success';
-      banner.textContent = '✅ 已刪除「' + name + '」';
-      refreshMembersList();
-      refreshSharedMemberLists();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
+        banner.textContent = '系統錯誤：' + err.message;
+      });
     });
   }
 
@@ -2720,7 +2778,7 @@
     var btn = document.createElement('button');
     btn.className = 'settle-btn';
     btn.textContent = '結清';
-    btn.onclick = function () { settleMemberAction(name); };
+    btn.onclick = function () { settleMemberAction(name, btn); };
 
     right.appendChild(amountSpan);
     right.appendChild(btn);
@@ -2794,7 +2852,7 @@
       var btn = document.createElement('button');
       btn.className = 'settle-btn';
       btn.textContent = '結清';
-      btn.onclick = function () { settlePairAction(s.from, s.to, s.amount, row); };
+      btn.onclick = function () { settlePairAction(s.from, s.to, s.amount, row, btn); };
 
       row.appendChild(namesDiv);
       var right = document.createElement('div');
@@ -2819,7 +2877,7 @@
         var btn = document.createElement('button');
         btn.className = 'settle-btn';
         btn.textContent = '結清';
-        btn.onclick = function () { settleFundShareAction(f.name, f.amount, row); };
+        btn.onclick = function () { settleFundShareAction(f.name, f.amount, row, btn); };
 
         row.appendChild(namesDiv);
         var right = document.createElement('div');
@@ -2832,103 +2890,113 @@
     }
   }
 
-  function settlePairAction(fromName, toName, amount, rowEl) {
+  function settlePairAction(fromName, toName, amount, rowEl, btn) {
     var banner = document.getElementById('settlementBanner');
     banner.className = 'banner';
-    callApi('settlePair', { fromName: fromName, toName: toName, amount: amount }).then(function (res) {
-      if (!res.success) {
-        banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      banner.className = 'banner show success';
-      banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + Math.round(amount).toLocaleString() + '」已結清';
-      refreshSettlementList();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
-    });
-  }
-
-  function settleFundShareAction(name, amount, rowEl) {
-    var banner = document.getElementById('settlementBanner');
-    banner.className = 'banner';
-    callApi('settleFundShare', { name: name, amount: amount }).then(function (res) {
-      if (!res.success) {
-        banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      banner.className = 'banner show success';
-      banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + Math.round(amount).toLocaleString() + '」已結清';
-      refreshSettlementList();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
-    });
-  }
-
-  var _quarterlySettlementPending = false;
-
-  function startQuarterlySettlement() {
-    var banner = document.getElementById('settlementBanner');
-    banner.className = 'banner';
-
-    if (!_quarterlySettlementPending) {
-      callApi('quarterlySettlement', { confirm: false }).then(function (res) {
+    withBusyButton(btn, '結清中…', function () {
+      return callApi('settlePair', { fromName: fromName, toName: toName, amount: amount }).then(function (res) {
         if (!res.success) {
           banner.className = 'banner show error';
           banner.textContent = res.error;
           return;
         }
-        if (res.count === 0) {
-          banner.className = 'banner show success';
-          banner.textContent = '目前沒有任何人有未結清的帳目，不需要季度結算。';
-          return;
-        }
-        _quarterlySettlementPending = true;
-        banner.className = 'banner show error';
-        banner.textContent = '⚠️ 即將把 ' + res.count + ' 位成員的帳目存檔並全部歸零，此動作無法復原。再按一次「季度結算」按鈕確認執行。';
+        banner.className = 'banner show success';
+        banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + Math.round(amount).toLocaleString() + '」已結清';
+        refreshSettlementList();
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;
       });
-      return;
-    }
-
-    // 第二次按下，正式執行
-    _quarterlySettlementPending = false;
-    callApi('quarterlySettlement', { confirm: true }).then(function (res) {
-      if (!res.success) {
-        banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      banner.className = 'banner show success';
-      banner.textContent = '✅ 季度結算完成，共處理 ' + res.count + ' 位成員，已存入歷史紀錄（' + res.date + '）';
-      refreshSettlementList();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
     });
   }
 
-  function settleMemberAction(name) {
+  function settleFundShareAction(name, amount, rowEl, btn) {
+    var banner = document.getElementById('settlementBanner');
+    banner.className = 'banner';
+    withBusyButton(btn, '結清中…', function () {
+      return callApi('settleFundShare', { name: name, amount: amount }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        banner.className = 'banner show success';
+        banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + Math.round(amount).toLocaleString() + '」已結清';
+        refreshSettlementList();
+      }).catch(function (err) {
+        banner.className = 'banner show error';
+        banner.textContent = '系統錯誤：' + err.message;
+      });
+    });
+  }
+
+  var _quarterlySettlementPending = false;
+
+  function startQuarterlySettlement(btn) {
     var banner = document.getElementById('settlementBanner');
     banner.className = 'banner';
 
-    callApi('settleMember', { name: name }).then(function (res) {
-      if (!res.success) {
+    if (!_quarterlySettlementPending) {
+      withBusyButton(btn, '確認中…', function () {
+        return callApi('quarterlySettlement', { confirm: false }).then(function (res) {
+          if (!res.success) {
+            banner.className = 'banner show error';
+            banner.textContent = res.error;
+            return;
+          }
+          if (res.count === 0) {
+            banner.className = 'banner show success';
+            banner.textContent = '目前沒有任何人有未結清的帳目，不需要季度結算。';
+            return;
+          }
+          _quarterlySettlementPending = true;
+          banner.className = 'banner show error';
+          banner.textContent = '⚠️ 即將把 ' + res.count + ' 位成員的帳目存檔並全部歸零，此動作無法復原。再按一次「季度結算」按鈕確認執行。';
+        }).catch(function (err) {
+          banner.className = 'banner show error';
+          banner.textContent = '系統錯誤：' + err.message;
+        });
+      });
+      return;
+    }
+
+    // 第二次按下，正式執行（這一步無法復原，特別要擋連點兩下）
+    _quarterlySettlementPending = false;
+    withBusyButton(btn, '結算中…', function () {
+      return callApi('quarterlySettlement', { confirm: true }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        banner.className = 'banner show success';
+        banner.textContent = '✅ 季度結算完成，共處理 ' + res.count + ' 位成員，已存入歷史紀錄（' + res.date + '）';
+        refreshSettlementList();
+      }).catch(function (err) {
         banner.className = 'banner show error';
-        banner.textContent = res.error;
-        return;
-      }
-      banner.className = 'banner show success';
-      banner.textContent = '✅ 「' + name + '」已結清';
-      refreshSettlementList();
-    }).catch(function (err) {
-      banner.className = 'banner show error';
-      banner.textContent = '系統錯誤：' + err.message;
+        banner.textContent = '系統錯誤：' + err.message;
+      });
+    });
+  }
+
+  function settleMemberAction(name, btn) {
+    var banner = document.getElementById('settlementBanner');
+    banner.className = 'banner';
+
+    withBusyButton(btn, '結清中…', function () {
+      return callApi('settleMember', { name: name }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        banner.className = 'banner show success';
+        banner.textContent = '✅ 「' + name + '」已結清';
+        refreshSettlementList();
+      }).catch(function (err) {
+        banner.className = 'banner show error';
+        banner.textContent = '系統錯誤：' + err.message;
+      });
     });
   }
 
@@ -2985,7 +3053,9 @@
     };
 
     // 樂觀 UI：先在本地算出跟後端一致的結果、立刻顯示卡片並跳回首頁，
-    // 實際寫入試算表在背景進行，不讓使用者對著轉圈圈的畫面等
+    // 實際寫入試算表在背景進行，不讓使用者對著轉圈圈的畫面等。
+    // 這裡不用鎖按鈕防連點：下面幾行會同步清空 outingPayerEntries/表單欄位，
+    // 就算手滑點兩下，第二次呼叫會在最上面的驗證直接被「請至少新增一筆墊款紀錄」擋下，不會真的送出兩筆。
     var preview = computeOutingPreview(payload);
     var detailLines = preview.participants.map(function (p) { return p.name + '：$' + p.amount; });
     detailLines.push('墊款：' + payload.payerEntries.map(function (e) { return e.payerName + ' $' + Math.round(e.amount); }).join('、'));
@@ -3056,7 +3126,9 @@
     };
 
     // 樂觀 UI：先在本地算出跟後端一致的結果、立刻顯示卡片並跳回首頁，
-    // 實際寫入試算表在背景進行，不讓使用者對著轉圈圈的畫面等
+    // 實際寫入試算表在背景進行，不讓使用者對著轉圈圈的畫面等。
+    // 同樣不用鎖按鈕防連點：下面會同步清空 venueEntries/selfBallEntries/出席者勾選，
+    // 手滑點兩下時第二次呼叫會在最上面的驗證被擋下，不會真的送出兩筆（跟 submitOutingForm 同樣邏輯）。
     var preview = computeBadmintonPreview(payload);
     var detailLines = preview.attendees.map(function (a) {
       return a.name + '：' + a.hours + 'hr → $' + a.amount + '（場地+自備球 $' + a.fixedShare + ' / 基金 $' + a.fundShare + '）';

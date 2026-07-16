@@ -1001,15 +1001,15 @@
       <div id="editPoolSection" style="display:none;">
         <div class="field" id="editVenueTotalField" style="margin-bottom:10px;">
           <label>場地費小計</label>
-          <input type="number" id="editVenueTotal" inputmode="decimal">
+          <input type="number" id="editVenueTotal" inputmode="decimal" oninput="syncSinglePayerAmount()">
         </div>
         <div class="field" id="editSelfBallTotalField" style="margin-bottom:10px;">
           <label>自備球小計</label>
-          <input type="number" id="editSelfBallTotal" inputmode="decimal">
+          <input type="number" id="editSelfBallTotal" inputmode="decimal" oninput="syncSinglePayerAmount()">
         </div>
         <div class="field" id="editTotalAmountField" style="margin-bottom:10px;display:none;">
           <label>總金額</label>
-          <input type="number" id="editTotalAmount" inputmode="decimal">
+          <input type="number" id="editTotalAmount" inputmode="decimal" oninput="syncSinglePayerAmount()">
         </div>
         <div class="field-row">
           <div class="field">
@@ -1023,6 +1023,7 @@
         </div>
         <button type="button" class="add-entry-btn" onclick="addEditPayerEntry()">+ 新增墊款人</button>
         <div id="editPayerEntryList" class="entry-list"></div>
+        <p class="hint" id="editPoolDiffHint"></p>
       </div>
       <h2 id="editListLabel" style="font-size:14px;">出席者與時數</h2>
       <div id="editMemberList" class="member-list"><div class="loading">載入中…</div></div>
@@ -1671,6 +1672,41 @@
     renderEditPayerEntryList();
   }
 
+  // 這場活動目前應該要湊到的墊款總額：羽球活動是場地費+自備球小計，出遊是總金額
+  function currentEditPoolTotal() {
+    if (!_editContext) return 0;
+    if (_editContext.type === 'badminton') {
+      var venueTotal = Number(document.getElementById('editVenueTotal').value) || 0;
+      var selfBallTotal = Number(document.getElementById('editSelfBallTotal').value) || 0;
+      return venueTotal + selfBallTotal;
+    }
+    return Number(document.getElementById('editTotalAmount').value) || 0;
+  }
+
+  // 只有一位墊款人時，小計/總金額改變時直接同步更新那筆墊款金額，不用手動再改一次；
+  // 兩位以上墊款人時分帳方式不唯一，無法自動判斷該怎麼分，維持手動輸入
+  function syncSinglePayerAmount() {
+    if (editPayerEntries.length === 1) {
+      editPayerEntries[0].amount = currentEditPoolTotal();
+    }
+    renderEditPayerEntryList();
+  }
+
+  function updateEditPoolDiffHint() {
+    var hint = document.getElementById('editPoolDiffHint');
+    if (!hint) return;
+    var poolTotal = currentEditPoolTotal();
+    var payerSum = editPayerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0);
+    var diff = poolTotal - payerSum;
+    if (Math.abs(diff) <= 1) {
+      hint.textContent = '墊款人合計 $' + payerSum + '，跟小計對得起來 ✓';
+      hint.style.color = '';
+    } else {
+      hint.textContent = '墊款人合計 $' + payerSum + '，跟小計 $' + poolTotal + ' 還差 $' + diff;
+      hint.style.color = '#c0392b';
+    }
+  }
+
   function renderEditPayerEntryList() {
     var container = document.getElementById('editPayerEntryList');
     container.innerHTML = '';
@@ -1685,6 +1721,7 @@
       row.appendChild(btn);
       container.appendChild(row);
     });
+    updateEditPoolDiffHint();
   }
 
   var outingPayerEntries = [];
@@ -2223,13 +2260,6 @@
       }
       document.getElementById('editActivityName').value = res.activityName || '';
       _editContext.canEditPool = !!res.canEditPool;
-      if (res.canEditPool) {
-        document.getElementById('editPoolSection').style.display = 'block';
-        editPayerEntries = (res.payers || []).map(function (p) { return { amount: p.amount, payerName: p.name }; });
-        renderEditPayerEntryList();
-      } else {
-        document.getElementById('editPoolLockedNote').style.display = 'block';
-      }
       if (type === 'badminton') {
         document.getElementById('editFundRate').value = res.fundRatePerHr || '';
         document.getElementById('editVenueTotal').value = res.venueTotal || 0;
@@ -2240,6 +2270,14 @@
         document.getElementById('editTotalAmount').value = res.totalAmount || 0;
         renderMemberList('editMemberList', 'outing');
         restoreCheckedSelection('editMemberList', res.participants, 'amount');
+      }
+      // 小計/總金額欄位要先填好，下面 renderEditPayerEntryList() 顯示的「還差多少」提示才會算對
+      if (res.canEditPool) {
+        document.getElementById('editPoolSection').style.display = 'block';
+        editPayerEntries = (res.payers || []).map(function (p) { return { amount: p.amount, payerName: p.name }; });
+        renderEditPayerEntryList();
+      } else {
+        document.getElementById('editPoolLockedNote').style.display = 'block';
       }
     }).catch(function (err) {
       banner.className = 'banner show error';

@@ -528,6 +528,49 @@
   }
 
   .nav-item.active { color: var(--court-green); font-weight: 600; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(27, 77, 62, 0.45);
+    z-index: 1000;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: var(--paper);
+    width: 100%;
+    max-width: 480px;
+    max-height: 88vh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+    padding: 18px 18px 24px;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .modal-header h2 { margin: 0; }
+  .modal-header button {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: var(--ink-soft);
+    padding: 4px 8px;
+  }
+  .edit-link-btn {
+    background: none;
+    border: none;
+    color: var(--court-green);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 4px 0;
+    font-family: 'Inter', sans-serif;
+  }
 </style>
 </head>
 <body>
@@ -937,6 +980,29 @@
   </main>
 </div>
 
+<div id="editActivityModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="editModalTitle">編輯活動</h2>
+      <button type="button" onclick="closeEditModal()">✕</button>
+    </div>
+    <div id="editModalBanner" class="banner"></div>
+    <section>
+      <div class="field" style="margin-bottom:10px;">
+        <label>活動名稱</label>
+        <input type="text" id="editActivityName">
+      </div>
+      <div class="field" id="editFundRateField" style="margin-bottom:10px;display:none;">
+        <label>羽球基金費率 / hr（留空或 0 表示不計費）</label>
+        <input type="number" id="editFundRate" inputmode="decimal">
+      </div>
+      <h2 id="editListLabel" style="font-size:14px;">出席者與時數</h2>
+      <div id="editMemberList" class="member-list"><div class="loading">載入中…</div></div>
+      <button type="button" class="primary-btn" id="editSubmitBtn" onclick="submitEditActivity()" style="margin-top:14px;">儲存修改</button>
+    </section>
+  </div>
+</div>
+
 <script>
   var members = [];
   var settings = {};
@@ -1239,7 +1305,9 @@
     refreshSharedMemberLists();
   }
 
-  function renderRecentActivity(title, totalCost, detailLines) {
+  // pendingId 有值時代表這筆是「樂觀 UI」先顯示、背景還在寫入試算表的暫存卡片；
+  // 之後用 markRecentActivityConfirmed/Failed 依同一個 pendingId 找回這張卡片更新狀態。
+  function renderRecentActivity(title, totalCost, detailLines, pendingId) {
     var el = document.getElementById('recentActivityContent');
     el.innerHTML = '';
 
@@ -1251,6 +1319,15 @@
     head.innerHTML = '<span>' + title + '</span><span>$' + Math.round(totalCost).toLocaleString() + '</span>';
     card.appendChild(head);
 
+    if (pendingId) {
+      var tag = document.createElement('div');
+      tag.id = 'recentActivityStatusTag';
+      tag.dataset.pendingId = pendingId;
+      tag.style.cssText = 'font-size:12px;color:var(--ink-soft);margin-bottom:4px;';
+      tag.textContent = '⏳ 儲存中…';
+      card.appendChild(tag);
+    }
+
     detailLines.forEach(function (line) {
       var p = document.createElement('div');
       p.style.cssText = 'font-size:12.5px;color:var(--ink-soft);padding:2px 0;';
@@ -1259,6 +1336,20 @@
     });
 
     el.appendChild(card);
+  }
+
+  // 樂觀 UI 的背景寫入結果回來時，只在畫面上還是同一張卡片（使用者沒有送出下一筆蓋掉它）才更新
+  function markRecentActivityConfirmed(pendingId) {
+    var tag = document.getElementById('recentActivityStatusTag');
+    if (!tag || tag.dataset.pendingId !== pendingId) return;
+    tag.remove();
+  }
+
+  function markRecentActivityFailed(pendingId, errorMsg) {
+    var tag = document.getElementById('recentActivityStatusTag');
+    if (!tag || tag.dataset.pendingId !== pendingId) return;
+    tag.style.color = '#C0392B';
+    tag.textContent = '❌ 儲存失敗：' + errorMsg + '，請重新輸入這筆記錄';
   }
 
   function goTo(viewName) {
@@ -1487,6 +1578,23 @@
         row.appendChild(unitSpan);
       }
       container.appendChild(row);
+    });
+  }
+
+  // 用既有資料回填 renderMemberList() 產生的清單（勾選 + 填入時數/金額），給編輯彈窗用
+  function restoreCheckedSelection(containerId, dataList, valueKey) {
+    var map = {};
+    (dataList || []).forEach(function (d) { map[d.name] = d[valueKey]; });
+    document.querySelectorAll('#' + containerId + ' .member-row').forEach(function (row) {
+      var name = row.dataset.name;
+      if (!map.hasOwnProperty(name)) return;
+      var checkbox = row.querySelector('input[type=checkbox]');
+      checkbox.checked = true;
+      row.classList.add('checked');
+      var val = map[name];
+      if (val !== undefined && val !== null && val !== '') {
+        row.querySelector('.extra-input').value = val;
+      }
     });
   }
 
@@ -1946,6 +2054,19 @@
         row.appendChild(pAmt);
         detail.appendChild(row);
       });
+
+      if (a.activityId) {
+        var editRow = document.createElement('div');
+        editRow.style.cssText = 'text-align:right;padding-top:4px;';
+        var editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'edit-link-btn';
+        editBtn.textContent = '✎ 編輯這筆';
+        editBtn.onclick = function (ev) { ev.stopPropagation(); openEditActivity(a.type, a.activityId); };
+        editRow.appendChild(editBtn);
+        detail.appendChild(editRow);
+      }
+
       card.appendChild(detail);
 
       headRow.onclick = function () {
@@ -1955,6 +2076,107 @@
 
       container.appendChild(card);
     });
+  }
+
+  // 編輯活動：只能改活動名稱、出席者/參加者名單與各自的時數或金額，不能改場地費/自備球/
+  // 總金額/墊款人（那些牽動到墊款流水帳，目前沒有活動ID可以精準對應回去修改，見後端註解）
+  var _editContext = null;
+
+  function openEditActivity(type, activityId) {
+    if (!activityId) return;
+    _editContext = { type: type, activityId: activityId };
+
+    var banner = document.getElementById('editModalBanner');
+    banner.className = 'banner';
+    document.getElementById('editModalTitle').textContent = type === 'badminton' ? '編輯羽球活動' : '編輯出遊費用';
+    document.getElementById('editFundRateField').style.display = type === 'badminton' ? 'block' : 'none';
+    document.getElementById('editListLabel').textContent = type === 'badminton' ? '出席者與時數' : '參加者與金額（留白＝均分剩餘金額）';
+    document.getElementById('editActivityName').value = '';
+    document.getElementById('editFundRate').value = '';
+    document.getElementById('editMemberList').innerHTML = '<div class="loading">載入中…</div>';
+    document.getElementById('editActivityModal').classList.add('show');
+
+    callApi('getActivityDetail', { activityId: activityId, type: type }).then(function (res) {
+      if (!res.success) {
+        banner.className = 'banner show error';
+        banner.textContent = res.error;
+        return;
+      }
+      document.getElementById('editActivityName').value = res.activityName || '';
+      if (type === 'badminton') {
+        document.getElementById('editFundRate').value = res.fundRatePerHr || '';
+        renderMemberList('editMemberList', 'attendee');
+        restoreCheckedSelection('editMemberList', res.attendees, 'hours');
+      } else {
+        renderMemberList('editMemberList', 'outing');
+        restoreCheckedSelection('editMemberList', res.participants, 'amount');
+      }
+    }).catch(function (err) {
+      banner.className = 'banner show error';
+      banner.textContent = '系統錯誤：' + err.message;
+    });
+  }
+
+  function closeEditModal() {
+    document.getElementById('editActivityModal').classList.remove('show');
+    _editContext = null;
+  }
+
+  function refreshAfterActivityEdit() {
+    var activeView = document.querySelector('.view.active');
+    if (activeView && activeView.id === 'view-history') refreshHistoryTransactionList();
+    if (activeView && activeView.id === 'view-me') refreshMeView();
+  }
+
+  function submitEditActivity() {
+    if (!_editContext) return;
+    var banner = document.getElementById('editModalBanner');
+    banner.className = 'banner';
+    var activityName = document.getElementById('editActivityName').value.trim();
+    var btn = document.getElementById('editSubmitBtn');
+
+    if (_editContext.type === 'badminton') {
+      var result = collectChecked('editMemberList');
+      if (result.error) { banner.className = 'banner show error'; banner.textContent = result.error; return; }
+      if (result.data.length === 0) { banner.className = 'banner show error'; banner.textContent = '請至少勾選一位出席者'; return; }
+
+      var payload = {
+        activityId: _editContext.activityId,
+        activityName: activityName,
+        fundRatePerHr: document.getElementById('editFundRate').value || 0,
+        attendees: result.data
+      };
+      btn.disabled = true; btn.textContent = '儲存中…';
+      callApi('updateBadmintonActivity', payload).then(function (res) {
+        btn.disabled = false; btn.textContent = '儲存修改';
+        if (!res.success) { banner.className = 'banner show error'; banner.textContent = res.error; return; }
+        if (res.fundWarning) { banner.className = 'banner show error'; banner.textContent = res.fundWarning; return; }
+        closeEditModal();
+        refreshAfterActivityEdit();
+      }).catch(function (err) {
+        btn.disabled = false; btn.textContent = '儲存修改';
+        banner.className = 'banner show error'; banner.textContent = '系統錯誤：' + err.message;
+      });
+    } else {
+      var result2 = collectCheckedOptional('editMemberList');
+      if (result2.data.length === 0) { banner.className = 'banner show error'; banner.textContent = '請至少勾選一位參加者'; return; }
+
+      var payload2 = {
+        activityId: _editContext.activityId,
+        activityName: activityName,
+        participants: result2.data
+      };
+      btn.disabled = true; btn.textContent = '儲存中…';
+      callApi('updateOutingActivity', payload2).then(function (res) {
+        btn.disabled = false; btn.textContent = '儲存修改';
+        if (!res.success) { banner.className = 'banner show error'; banner.textContent = res.error; return; }
+        closeEditModal();
+        refreshAfterActivityEdit();
+      }).catch(function (err) {
+        btn.disabled = false; btn.textContent = '儲存修改';
+        banner.className = 'banner show error'; banner.textContent = '系統錯誤：' + err.message;
+      });
+    }
   }
 
   // 「我的」頁面：複用結算狀況與交易紀錄的資料，只篩出跟自己（myBoundName）有關的部分
@@ -2057,6 +2279,7 @@
               type: a.type,
               date: a.date,
               activityName: a.activityName,
+              activityId: a.activityId,
               totalCost: mine.amount,
               totalAmount: mine.amount,
               people: [mine]
@@ -2448,6 +2671,32 @@
     });
   }
 
+  // 跟後端 parseSplitEntries() 同一套演算法（自動補差額分攤），純前端算一次是為了
+  // 樂觀 UI：不用等後端回應就能算出跟後端一模一樣的結果，立刻顯示給使用者看。
+  function parseSplitEntriesClient(entries, totalAmount) {
+    var fixedSum = 0;
+    var fixedPeople = [];
+    var autoPeople = [];
+    entries.forEach(function (p) {
+      if (p.amount !== undefined && p.amount !== '' && p.amount !== null) {
+        var amt = Number(p.amount);
+        fixedPeople.push({ name: p.name, amount: amt });
+        fixedSum += amt;
+      } else {
+        autoPeople.push({ name: p.name });
+      }
+    });
+    var remaining = totalAmount - fixedSum;
+    var amountPerAuto = autoPeople.length > 0 ? Math.round(remaining / autoPeople.length) : 0;
+    return fixedPeople.concat(autoPeople.map(function (p) { return { name: p.name, amount: amountPerAuto }; }));
+  }
+
+  function computeOutingPreview(payload) {
+    var totalAmount = Math.round(payload.payerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0));
+    var participants = parseSplitEntriesClient(payload.participants, totalAmount);
+    return { totalAmount: totalAmount, participants: participants };
+  }
+
   function submitOutingForm() {
     document.getElementById('outingBanner').className = 'banner';
 
@@ -2474,40 +2723,48 @@
       participants: participants
     };
 
-    var btn = document.getElementById('outingSubmitBtn');
-    btn.disabled = true;
-    btn.textContent = '送出中…';
+    // 樂觀 UI：先在本地算出跟後端一致的結果、立刻顯示卡片並跳回首頁，
+    // 實際寫入試算表在背景進行，不讓使用者對著轉圈圈的畫面等
+    var preview = computeOutingPreview(payload);
+    var detailLines = preview.participants.map(function (p) { return p.name + '：$' + p.amount; });
+    detailLines.push('墊款：' + payload.payerEntries.map(function (e) { return e.payerName + ' $' + Math.round(e.amount); }).join('、'));
+
+    var pendingId = 'p' + Date.now();
+    renderRecentActivity('🧾 ' + (payload.activityName || '（未命名活動）'), preview.totalAmount, detailLines, pendingId);
+
+    document.getElementById('outingActivityName').value = '';
+    outingPayerEntries = [];
+    renderOutingPayerEntryList();
+    renderMemberList('outingParticipantList', 'outing');
+    goTo('home');
 
     callApi('submitOutingFormV2', payload).then(function (res) {
-      btn.disabled = false;
-      btn.textContent = '送出記帳';
-
-      if (!res.success) {
-        var b3 = document.getElementById('outingBanner');
-        b3.className = 'banner show error';
-        b3.textContent = res.error;
-        return;
-      }
-
-      var detailLines = res.participants.map(function (p) { return p.name + '：$' + p.amount; });
-      if (res.payers && res.payers.length > 0) {
-        detailLines.push('墊款：' + res.payers.map(function (p) { return p.name + ' $' + p.amount; }).join('、'));
-      }
-      renderRecentActivity('🧾 ' + res.activityName, res.totalAmount, detailLines);
-
-      document.getElementById('outingActivityName').value = '';
-      outingPayerEntries = [];
-      renderOutingPayerEntryList();
-      renderMemberList('outingParticipantList', 'outing');
-
-      goTo('home');
+      if (!res.success) { markRecentActivityFailed(pendingId, res.error); return; }
+      markRecentActivityConfirmed(pendingId);
     }).catch(function (err) {
-      btn.disabled = false;
-      btn.textContent = '送出記帳';
-      var b4 = document.getElementById('outingBanner');
-      b4.className = 'banner show error';
-      b4.textContent = '系統錯誤：' + err.message;
+      markRecentActivityFailed(pendingId, err.message);
     });
+  }
+
+  // 跟後端 submitBadmintonFormV2ForLiff() 同一套算法，純前端算一次是為了樂觀 UI：
+  // 場地費+自備球是固定成本池，依人時比例分攤；基金是線性計費，兩者互不影響，
+  // 這個計算不依賴任何伺服器端狀態，前端跟後端算出來的結果必然一致。
+  function computeBadmintonPreview(payload) {
+    var venueTotal = payload.venueEntries.reduce(function (s, e) { return s + Number(e.ratePerHr) * Number(e.hours); }, 0);
+    var selfBallTotal = payload.selfBallEntries.reduce(function (s, e) { return s + Number(e.price) * Number(e.count); }, 0);
+    var fixedPoolTotal = venueTotal + selfBallTotal;
+    var totalPersonHours = payload.attendees.reduce(function (s, a) { return s + Number(a.hours); }, 0);
+    var pricePerPersonHourFixed = fixedPoolTotal > 0 ? fixedPoolTotal / totalPersonHours : 0;
+    var fundRatePerHr = Number(payload.fundRatePerHr) || 0;
+
+    var attendees = payload.attendees.map(function (a) {
+      var hours = Number(a.hours);
+      var fixedShare = Math.round(hours * pricePerPersonHourFixed);
+      var fundShare = Math.round(hours * fundRatePerHr);
+      return { name: a.name, hours: hours, fixedShare: fixedShare, fundShare: fundShare, amount: fixedShare + fundShare };
+    });
+    var totalCost = attendees.reduce(function (s, a) { return s + a.amount; }, 0);
+    return { totalCost: totalCost, attendees: attendees };
   }
 
   function submitBadmintonForm() {
@@ -2537,50 +2794,44 @@
       attendees: attendeesResult.data
     };
 
-    var btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.textContent = '送出中…';
+    // 樂觀 UI：先在本地算出跟後端一致的結果、立刻顯示卡片並跳回首頁，
+    // 實際寫入試算表在背景進行，不讓使用者對著轉圈圈的畫面等
+    var preview = computeBadmintonPreview(payload);
+    var detailLines = preview.attendees.map(function (a) {
+      return a.name + '：' + a.hours + 'hr → $' + a.amount + '（場地+自備球 $' + a.fixedShare + ' / 基金 $' + a.fundShare + '）';
+    });
+    if (payload.venueEntries.length > 0 || payload.selfBallEntries.length > 0) {
+      var payerTotals = {};
+      payload.venueEntries.concat(payload.selfBallEntries.map(function (e) { return { ratePerHr: e.price, hours: e.count, payerName: e.payerName }; }))
+        .forEach(function (e) { payerTotals[e.payerName] = (payerTotals[e.payerName] || 0) + Number(e.ratePerHr) * Number(e.hours); });
+      detailLines.push('墊款：' + Object.keys(payerTotals).map(function (name) { return name + ' $' + Math.round(payerTotals[name]); }).join('、'));
+    }
+
+    var pendingId = 'p' + Date.now();
+    renderRecentActivity('🏸 ' + (payload.activityName || '（未命名活動）'), preview.totalCost, detailLines, pendingId);
+
+    venueEntries = [];
+    selfBallEntries = [];
+    document.getElementById('activityName').value = '';
+    renderEntryList('venue');
+    renderEntryList('selfBall');
+    document.getElementById('fundToggle').checked = false;
+    document.getElementById('selfBallToggle').checked = false;
+    toggleSection('fund');
+    toggleSection('selfBall');
+    document.getElementById('fundRate').value = settings.fundRateDefault || '';
+    renderMemberList('attendeeList', 'attendee');
+    updateScoreboard();
+    goTo('home');
 
     callApi('submitBadmintonFormV2', payload).then(function (res) {
-      btn.disabled = false;
-      btn.textContent = '送出記帳';
-
-      if (!res.success) { showBanner('error', res.error); return; }
-
-      var detailLines = res.attendees.map(function (a) {
-        return a.name + '：' + a.hours + 'hr → $' + a.amount + '（場地+自備球 $' + a.fixedShare + ' / 基金 $' + a.fundShare + '）';
-      });
-      if (res.payers && res.payers.length > 0) {
-        detailLines.push('墊款：' + res.payers.map(function (p) { return p.name + ' $' + p.amount; }).join('、'));
-      }
-      if (res.fundWarning) {
-        detailLines.push(res.fundWarning);
-      }
-
-      renderRecentActivity('🏸 ' + res.activityName, res.totalCost, detailLines);
-
-      venueEntries = [];
-      selfBallEntries = [];
-      document.getElementById('activityName').value = '';
-      renderEntryList('venue');
-      renderEntryList('selfBall');
-      document.getElementById('fundToggle').checked = false;
-      document.getElementById('selfBallToggle').checked = false;
-      toggleSection('fund');
-      toggleSection('selfBall');
-      document.getElementById('fundRate').value = settings.fundRateDefault || '';
-      renderMemberList('attendeeList', 'attendee');
-      updateScoreboard();
-
+      if (!res.success) { markRecentActivityFailed(pendingId, res.error); return; }
+      if (res.fundWarning) { markRecentActivityFailed(pendingId, res.fundWarning); } else { markRecentActivityConfirmed(pendingId); }
       callApi('getFundBalance').then(function (fundRes) {
         document.getElementById('fundBalanceDisplay').textContent = '$' + Math.round(fundRes.balance || 0).toLocaleString();
       });
-
-      goTo('home');
     }).catch(function (err) {
-      btn.disabled = false;
-      btn.textContent = '送出記帳';
-      showBanner('error', '系統錯誤：' + err.message);
+      markRecentActivityFailed(pendingId, err.message);
     });
   }
 

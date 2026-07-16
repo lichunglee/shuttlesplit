@@ -1040,12 +1040,33 @@
     }
   })();
 
+  // 讓瀏覽器記得使用者原本想做的事，跨過 liff.login() 導轉登入頁再導回來的整頁重載
+  function triggerLineLogin(returnHash) {
+    if (typeof liff === 'undefined' || typeof liff.login !== 'function') return false;
+    var base = window.location.href.split('#')[0];
+    liff.login({ redirectUri: returnHash ? (base + '#' + returnHash) : base });
+    return true;
+  }
+
+  function resumePendingAction() {
+    var hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return;
+    window.location.hash = '';
+    if (hash === 'me') {
+      goTo('me');
+    } else if (hash.indexOf('bind=') === 0) {
+      var name = decodeURIComponent(hash.slice(5));
+      goTo('members');
+      setTimeout(function () { quickBindMember(name); }, 300);
+    }
+  }
+
   function checkMyLineBinding() {
     var banner = document.getElementById('homeBanner');
     try {
       if (!liff.isLoggedIn()) {
-        banner.className = 'banner show error';
-        banner.textContent = '⚠️ 偵測到尚未透過 LINE 登入（liff.isLoggedIn() = false），無法檢查綁定狀態';
+        // 電腦版瀏覽器或還沒登入過 LINE 的情況：不強制登入，一般瀏覽/記帳功能不需要身份，
+        // 只有點「這是我」或進「我的」頁面時才會觸發 liff.login()。
         return;
       }
 
@@ -1065,6 +1086,7 @@
         myLineUserId = profile.userId;
         myPictureUrl = profile.pictureUrl || null;
         myDisplayName = profile.displayName;
+        resumePendingAction();
 
         callApi('getMyBinding', { lineUserId: myLineUserId }).then(function (res) {
           if (!res.success) {
@@ -1248,7 +1270,12 @@
     if (viewName === 'history') switchHistoryTab('transactions');
     if (viewName === 'members') ensureMyLineProfile(refreshMembersList);
     if (viewName === 'venue') refreshVenueList();
-    if (viewName === 'me') ensureMyLineProfile(refreshMeView);
+    if (viewName === 'me') {
+      var needsLogin = typeof liff !== 'undefined' && liff.isLoggedIn && !liff.isLoggedIn();
+      if (!needsLogin || !triggerLineLogin('me')) {
+        ensureMyLineProfile(refreshMeView);
+      }
+    }
   }
 
   function comingSoon(name) {
@@ -1709,12 +1736,23 @@
     right.textContent = m.net === 0 ? '無未結款項' : (m.net > 0 ? '欠款 $' + Math.round(m.net).toLocaleString() : '待收回 $' + Math.round(Math.abs(m.net)).toLocaleString());
     rightWrap.appendChild(right);
 
-    if (!m.bound && !myBoundName && myLineUserId) {
+    if (!m.bound && !myBoundName) {
       var bindBtn = document.createElement('button');
       bindBtn.type = 'button';
       bindBtn.className = 'settle-btn';
       bindBtn.textContent = '這是我';
-      bindBtn.onclick = function (ev) { ev.stopPropagation(); quickBindMember(m.name); };
+      bindBtn.onclick = function (ev) {
+        ev.stopPropagation();
+        if (myLineUserId) {
+          quickBindMember(m.name);
+          return;
+        }
+        if (!triggerLineLogin('bind=' + encodeURIComponent(m.name))) {
+          var banner = document.getElementById('membersBanner');
+          banner.className = 'banner show error';
+          banner.textContent = '請透過 LINE 開啟此頁面才能綁定身份';
+        }
+      };
       rightWrap.appendChild(bindBtn);
     }
 

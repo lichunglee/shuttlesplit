@@ -2250,6 +2250,30 @@
     });
   }
 
+  // 整筆刪除一個活動：後端會把這筆造成的所有影響(成員累積金額、墊款、基金分攤)反向沖銷,
+  // 無法復原,所以先跳原生 confirm 二次確認(跟 deleteMemberAction 同樣的模式)。
+  function deleteActivityAction(type, activityId, btn) {
+    if (!confirm('確定要刪除這筆紀錄嗎？相關的金額都會反向沖銷，此動作無法復原。')) {
+      return;
+    }
+    var banner = document.getElementById('historyBanner');
+    banner.className = 'banner';
+
+    withBusyButton(btn, '刪除中…', function () {
+      return callApi('deleteActivity', { type: type, activityId: activityId }).then(function (res) {
+        if (!res.success) {
+          banner.className = 'banner show error';
+          banner.textContent = res.error;
+          return;
+        }
+        refreshHistoryTransactionList();
+      }).catch(function (err) {
+        banner.className = 'banner show error';
+        banner.textContent = '系統錯誤：' + err.message;
+      });
+    });
+  }
+
   function renderTransactionList(container, activities) {
     container.innerHTML = '';
     if (!activities || activities.length === 0) {
@@ -2309,13 +2333,20 @@
 
       if (a.activityId) {
         var editRow = document.createElement('div');
-        editRow.style.cssText = 'text-align:right;padding-top:4px;';
+        editRow.style.cssText = 'text-align:right;padding-top:4px;display:flex;justify-content:flex-end;gap:10px;';
         var editBtn = document.createElement('button');
         editBtn.type = 'button';
         editBtn.className = 'edit-link-btn';
         editBtn.textContent = '✎ 編輯這筆';
         editBtn.onclick = function (ev) { ev.stopPropagation(); openEditActivity(a.type, a.activityId); };
         editRow.appendChild(editBtn);
+        var deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'edit-link-btn';
+        deleteBtn.style.color = 'var(--error)';
+        deleteBtn.textContent = '🗑 刪除這筆';
+        deleteBtn.onclick = function (ev) { ev.stopPropagation(); deleteActivityAction(a.type, a.activityId, deleteBtn); };
+        editRow.appendChild(deleteBtn);
         detail.appendChild(editRow);
       }
 

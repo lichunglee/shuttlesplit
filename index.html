@@ -1084,49 +1084,33 @@
   // ============================================================
   var CONFIG = {
     LIFF_ID: '2010691643-7CS3NZUC',
-    API_BASE: 'https://script.google.com/macros/s/AKfycbwSJMoxKBMN4KUttPqhFcm1Ot7tVAvUBfiWRszJUQoYnLK2EoOcX8NNFVSJ_Ev1hxjCLw/exec'
+    API_BASE: 'https://shuttlesplit-backend.vercel.app/api/liff'
   };
   document.getElementById('liffIdDisplay').textContent = CONFIG.LIFF_ID || '（沒設定）';
 
   // ============================================================
-  // 呼叫後端 JSON API（取代原本的 google.script.run，因為這個頁面現在是
-  // 獨立網域的靜態頁面，google.script.run 只有頁面本身由 GAS 提供時才能用）。
-  // 用 JSONP（動態插入 <script> 標籤）呼叫，不是 fetch，因為 Apps Script
-  // Web App 對跨網域 POST/fetch 的 CORS 支援不穩定，JSONP 是公認可靠的做法。
-  // action 對應後端 doGet 裡的 action 分支；payload 會被 JSON.stringify 後
-  // 當成 URL 參數傳過去，回傳一樣是一個 Promise，resolve 值就是後端函式原本的回傳物件。
+  // 呼叫後端 JSON API。2026-07-21：後端從 Google Apps Script 搬到 Vercel後，
+  // 改用標準 fetch + CORS，不用再靠 JSONP 繞過 GAS Web App 的跨域限制。
+  // action 對應後端 /api/liff 分派表；payload 直接放進 JSON body 傳過去，
+  // 回傳一樣是一個 Promise，resolve 值就是後端函式原本的回傳物件。
   // ============================================================
-  var _jsonpSeq = 0;
   function callApi(action, payload) {
-    return new Promise(function (resolve, reject) {
-      var cbName = '_ssCb' + (_jsonpSeq++) + '_' + Date.now();
-      var script = document.createElement('script');
-      var timeoutId = setTimeout(function () {
-        cleanup();
-        reject(new Error('API 逾時（' + action + '）'));
-      }, 15000);
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function () { controller.abort(); }, 15000);
 
-      function cleanup() {
-        clearTimeout(timeoutId);
-        delete window[cbName];
-        if (script.parentNode) script.parentNode.removeChild(script);
-      }
-
-      window[cbName] = function (res) {
-        cleanup();
-        resolve(res);
-      };
-
-      var url = CONFIG.API_BASE +
-        '?action=' + encodeURIComponent(action) +
-        '&callback=' + cbName +
-        (payload !== undefined ? '&payload=' + encodeURIComponent(JSON.stringify(payload)) : '');
-      script.src = url;
-      script.onerror = function () {
-        cleanup();
-        reject(new Error('API 呼叫失敗（' + action + '），請檢查網路連線'));
-      };
-      document.body.appendChild(script);
+    return fetch(CONFIG.API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action, payload: payload }),
+      signal: controller.signal
+    }).then(function (resp) {
+      clearTimeout(timeoutId);
+      if (!resp.ok) throw new Error('API 呼叫失敗（' + action + '），HTTP ' + resp.status);
+      return resp.json();
+    }).catch(function (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') throw new Error('API 逾時（' + action + '）');
+      throw new Error('API 呼叫失敗（' + action + '），請檢查網路連線：' + err.message);
     });
   }
 

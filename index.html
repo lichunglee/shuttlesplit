@@ -152,6 +152,7 @@
   .scoreboard .sub { font-size: 12px; color: #9CCBB3; }
   .scoreboard .amount { font-size: 15px; font-weight: 500; color: #fff; }
   .scoreboard .total { font-size: 24px; font-weight: 700; color: #fff; }
+  .scoreboard .total.mismatch { color: #FF6B6B; }
 
   .member-list { display: flex; flex-direction: column; gap: 8px; }
 
@@ -779,6 +780,9 @@
       <h2>參加者</h2>
       <p class="hint">留空金額代表自動均分剩餘金額，也可以指定固定金額</p>
       <div id="outingParticipantList" class="member-list"><div class="loading">載入成員清單中…</div></div>
+      <div class="scoreboard" style="margin-top:12px;">
+        <div class="row"><span class="label">尚未分配</span><span class="total" id="outingRemainingDisplay">$0</span></div>
+      </div>
     </section>
   </main>
 
@@ -1646,6 +1650,10 @@
         extraInput.placeholder = '金額(選填)';
         checkbox.addEventListener('change', function () {
           row.classList.toggle('checked', checkbox.checked);
+          if (containerId === 'outingParticipantList') updateOutingRemainingDisplay();
+        });
+        extraInput.addEventListener('input', function () {
+          if (containerId === 'outingParticipantList') updateOutingRemainingDisplay();
         });
       }
 
@@ -1815,6 +1823,25 @@
       container.appendChild(row);
     });
     document.getElementById('outingTotalDisplay').textContent = '$' + Math.round(total).toLocaleString();
+    updateOutingRemainingDisplay();
+  }
+
+  // 即時顯示「總金額 - 已指定固定金額的參加者金額總和」，讓使用者填的時候就知道還剩多少沒分配，
+  // 不用等按下送出後端才回報「金額對不起來」
+  function updateOutingRemainingDisplay() {
+    var el = document.getElementById('outingRemainingDisplay');
+    if (!el) return;
+    var total = outingPayerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0);
+    var participants = collectCheckedOptional('outingParticipantList').data;
+    var fixedSum = 0;
+    var autoCount = 0;
+    participants.forEach(function (p) {
+      if (p.amount !== '' && p.amount !== null && p.amount !== undefined) fixedSum += Number(p.amount);
+      else autoCount++;
+    });
+    var remaining = Math.round(total - fixedSum);
+    el.textContent = '$' + remaining.toLocaleString();
+    el.classList.toggle('mismatch', autoCount === 0 && remaining !== 0);
   }
 
   function submitFundAction(action, btn) {
@@ -2042,6 +2069,7 @@
       populatePayerSelects();
       renderMemberList('attendeeList', 'attendee');
       renderMemberList('outingParticipantList', 'outing');
+      updateOutingRemainingDisplay();
     });
   }
 
@@ -3061,6 +3089,29 @@
       return;
     }
 
+    // 送出前先在本地驗證金額對不對得起來，避免等後端回報錯誤時樂觀 UI 已經跳回首頁、清空表單
+    var totalAmount = Math.round(outingPayerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0));
+    var fixedSum = 0;
+    var autoCount = 0;
+    participants.forEach(function (p) {
+      if (p.amount !== '' && p.amount !== null && p.amount !== undefined) fixedSum += Number(p.amount);
+      else autoCount++;
+    });
+    fixedSum = Math.round(fixedSum);
+    var remaining = totalAmount - fixedSum;
+    if (autoCount === 0 && remaining !== 0) {
+      var b3 = document.getElementById('outingBanner');
+      b3.className = 'banner show error';
+      b3.textContent = '指定的金額總和是 $' + fixedSum.toLocaleString() + '，跟總金額 $' + totalAmount.toLocaleString() + ' 對不起來（差 $' + remaining.toLocaleString() + '），請重新確認金額';
+      return;
+    }
+    if (autoCount > 0 && remaining < 0) {
+      var b4 = document.getElementById('outingBanner');
+      b4.className = 'banner show error';
+      b4.textContent = '指定的金額總和 $' + fixedSum.toLocaleString() + ' 已經超過總金額 $' + totalAmount.toLocaleString();
+      return;
+    }
+
     var payload = {
       activityName: activityName,
       payerEntries: outingPayerEntries,
@@ -3080,8 +3131,8 @@
 
     document.getElementById('outingActivityName').value = '';
     outingPayerEntries = [];
-    renderOutingPayerEntryList();
     renderMemberList('outingParticipantList', 'outing');
+    renderOutingPayerEntryList();
     goTo('home');
 
     callApi('submitOutingFormV2', payload).then(function (res) {
@@ -3195,6 +3246,7 @@
     populatePayerSelects();
     renderMemberList('attendeeList', 'attendee');
     renderMemberList('outingParticipantList', 'outing');
+    updateOutingRemainingDisplay();
     updateScoreboard();
   }).catch(function (err) {
     document.getElementById('fundBalanceDisplay').textContent = '載入失敗';

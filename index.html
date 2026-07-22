@@ -3013,35 +3013,57 @@
     return !!ctx && (ctx.type === 'group' || ctx.type === 'room' || ctx.type === 'utou');
   }
 
-  // 有頭像就疊一顆大頭貼在名字上面，沒有（例如「羽球基金」這種非成員文字）就只顯示文字
+  // 有頭像貼真實照片；沒有的話（例如「羽球基金」這種非成員文字，或還沒綁定頭像的成員）
+  // 用名字/emoji第一個字元疊一顆同尺寸的色塊當佔位大頭貼，兩邊高度才會整齊
   function buildPersonBox(label, avatarUrl) {
-    var contents = [];
+    var avatarBox;
     if (avatarUrl) {
-      contents.push({ type: 'image', url: avatarUrl, size: '40px', aspectMode: 'cover', aspectRatio: '1:1', align: 'center' });
+      avatarBox = { type: 'image', url: avatarUrl, size: '48px', aspectMode: 'cover', aspectRatio: '1:1', align: 'center' };
+    } else {
+      avatarBox = {
+        type: 'box', layout: 'vertical', width: '48px', height: '48px', cornerRadius: 'md',
+        backgroundColor: '#D4A24C', justifyContent: 'center', alignItems: 'center',
+        contents: [{ type: 'text', text: (label || '?').charAt(0), color: '#FFFFFF', weight: 'bold', size: 'md', align: 'center', gravity: 'center' }]
+      };
     }
-    contents.push({ type: 'text', text: label, size: 'sm', wrap: true, align: 'center', margin: avatarUrl ? 'xs' : 'none' });
-    return { type: 'box', layout: 'vertical', flex: 3, contents: contents };
+    return {
+      type: 'box', layout: 'vertical', flex: 3, spacing: 'xs', alignItems: 'center',
+      contents: [
+        avatarBox,
+        { type: 'text', text: label, size: 'sm', wrap: true, align: 'center', color: '#333333' }
+      ]
+    };
   }
 
   function buildSettleFlexMessageClient(fromLabel, toLabel, amount, fromAvatar, toAvatar) {
+    var liffUrl = CONFIG.LIFF_ID ? ('https://liff.line.me/' + CONFIG.LIFF_ID) : 'https://liff.line.me/';
     return {
       type: 'flex',
       altText: '✅ 「' + fromLabel + ' → ' + toLabel + ' $' + amount.toLocaleString() + '」已結清',
       contents: {
         type: 'bubble',
+        header: {
+          type: 'box', layout: 'vertical', backgroundColor: '#1B4D3E', paddingAll: 'md',
+          contents: [{ type: 'text', text: '✅ 已結清', color: '#FFFFFF', weight: 'bold', size: 'md' }]
+        },
         body: {
-          type: 'box', layout: 'vertical', spacing: 'sm',
+          type: 'box', layout: 'vertical', spacing: 'md', paddingAll: 'lg',
           contents: [
-            { type: 'text', text: '✅ 結清', weight: 'bold', size: 'sm', color: '#1B4D3E' },
-            { type: 'text', text: '$' + amount.toLocaleString(), weight: 'bold', size: 'xxl', color: '#1B4D3E' },
+            { type: 'text', text: '$' + amount.toLocaleString(), weight: 'bold', size: 'xxl', color: '#1B4D3E', align: 'center' },
+            { type: 'separator', margin: 'sm' },
             {
               type: 'box', layout: 'horizontal', margin: 'md', alignItems: 'center',
               contents: [
                 buildPersonBox(fromLabel, fromAvatar),
-                { type: 'text', text: '→', size: 'md', flex: 1, align: 'center', color: '#D4A24C' },
+                { type: 'text', text: '→', size: 'lg', flex: 1, align: 'center', gravity: 'center', color: '#D4A24C' },
                 buildPersonBox(toLabel, toAvatar)
               ]
             }
+          ]
+        },
+        footer: {
+          type: 'box', layout: 'vertical', contents: [
+            { type: 'button', style: 'primary', color: '#1B4D3E', height: 'sm', action: { type: 'uri', label: '看結算狀況', uri: liffUrl } }
           ]
         }
       }

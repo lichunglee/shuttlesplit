@@ -2880,14 +2880,8 @@
     amountSpan.className = 'wf-amount ' + type;
     amountSpan.textContent = prefix + amount.toLocaleString();
 
-    var btn = document.createElement('button');
-    btn.className = 'settle-btn';
-    btn.textContent = '結清';
-    btn.onclick = function () { settleMemberAction(name, btn); };
-
     top.appendChild(nameDiv);
     top.appendChild(amountSpan);
-    top.appendChild(btn);
 
     var track = document.createElement('div');
     track.className = 'wf-bar-track';
@@ -3010,6 +3004,7 @@
   }
 
   function settlePairAction(fromName, toName, amount, rowEl, btn) {
+    if (!confirm('確定「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已經轉帳完成，要標記為結清嗎？')) return;
     var banner = document.getElementById('settlementBanner');
     banner.className = 'banner';
     withBusyButton(btn, '結清中…', function () {
@@ -3030,6 +3025,7 @@
   }
 
   function settleFundShareAction(name, amount, rowEl, btn) {
+    if (!confirm('確定「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已經轉帳完成，要標記為結清嗎？')) return;
     var banner = document.getElementById('settlementBanner');
     banner.className = 'banner';
     withBusyButton(btn, '結清中…', function () {
@@ -3090,27 +3086,6 @@
         }
         banner.className = 'banner show success';
         banner.textContent = '✅ 季度結算完成，共處理 ' + res.count + ' 位成員，已存入歷史紀錄（' + res.date + '）';
-        refreshSettlementList();
-      }).catch(function (err) {
-        banner.className = 'banner show error';
-        banner.textContent = '系統錯誤：' + err.message;
-      });
-    });
-  }
-
-  function settleMemberAction(name, btn) {
-    var banner = document.getElementById('settlementBanner');
-    banner.className = 'banner';
-
-    withBusyButton(btn, '結清中…', function () {
-      return callApi('settleMember', { name: name }).then(function (res) {
-        if (!res.success) {
-          banner.className = 'banner show error';
-          banner.textContent = res.error;
-          return;
-        }
-        banner.className = 'banner show success';
-        banner.textContent = '✅ 「' + name + '」已結清';
         refreshSettlementList();
       }).catch(function (err) {
         banner.className = 'banner show error';

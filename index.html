@@ -1092,6 +1092,11 @@
   };
   document.getElementById('liffIdDisplay').textContent = CONFIG.LIFF_ID || '（沒設定）';
 
+  // 金額一律顯示到分（不再無條件捨去到整數），這裡統一捨到分避免顯示出 JS 浮點數運算殘留的雜訊小數
+  function roundCents(n) {
+    return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+  }
+
   // ============================================================
   // 呼叫後端 JSON API。2026-07-21：後端從 Google Apps Script 搬到 Vercel後，
   // 改用標準 fetch + CORS，不用再靠 JSONP 繞過 GAS Web App 的跨域限制。
@@ -1372,7 +1377,7 @@
 
     var head = document.createElement('div');
     head.style.cssText = 'display:flex;justify-content:space-between;font-weight:600;font-size:14px;color:var(--ink);margin-bottom:6px;';
-    head.innerHTML = '<span>' + title + '</span><span>$' + Math.round(totalCost).toLocaleString() + '</span>';
+    head.innerHTML = '<span>' + title + '</span><span>$' + roundCents(totalCost).toLocaleString() + '</span>';
     card.appendChild(head);
 
     if (pendingId) {
@@ -1579,8 +1584,8 @@
       var row = document.createElement('div');
       row.className = 'entry-item';
       var label = type === 'venue'
-        ? ('$' + entry.ratePerHr + '/hr × ' + entry.hours + 'hr = $' + Math.round(entry.ratePerHr * entry.hours) + '（' + entry.payerName + '）')
-        : ('$' + entry.price + ' × ' + entry.count + '顆 = $' + Math.round(entry.price * entry.count) + '（' + entry.payerName + '）');
+        ? ('$' + entry.ratePerHr + '/hr × ' + entry.hours + 'hr = $' + roundCents(entry.ratePerHr * entry.hours) + '（' + entry.payerName + '）')
+        : ('$' + entry.price + ' × ' + entry.count + '顆 = $' + roundCents(entry.price * entry.count) + '（' + entry.payerName + '）');
       row.innerHTML = '<span>' + label + '</span>';
       var btn = document.createElement('button');
       btn.className = 'remove-btn';
@@ -1606,9 +1611,9 @@
     });
     var fundTotal = fundRate * personHours;
 
-    document.getElementById('fixedPoolDisplay').textContent = '$' + Math.round(fixedPool).toLocaleString();
-    document.getElementById('fundTotalDisplay').textContent = '$' + Math.round(fundTotal).toLocaleString();
-    document.getElementById('grandTotalDisplay').textContent = '$' + Math.round(fixedPool + fundTotal).toLocaleString();
+    document.getElementById('fixedPoolDisplay').textContent = '$' + roundCents(fixedPool).toLocaleString();
+    document.getElementById('fundTotalDisplay').textContent = '$' + roundCents(fundTotal).toLocaleString();
+    document.getElementById('grandTotalDisplay').textContent = '$' + roundCents(fixedPool + fundTotal).toLocaleString();
   }
 
   document.getElementById('fundRate').addEventListener('input', updateScoreboard);
@@ -1822,7 +1827,7 @@
       row.appendChild(btn);
       container.appendChild(row);
     });
-    document.getElementById('outingTotalDisplay').textContent = '$' + Math.round(total).toLocaleString();
+    document.getElementById('outingTotalDisplay').textContent = '$' + roundCents(total).toLocaleString();
     updateOutingRemainingDisplay();
   }
 
@@ -1839,7 +1844,7 @@
       if (p.amount !== '' && p.amount !== null && p.amount !== undefined) fixedSum += Number(p.amount);
       else autoCount++;
     });
-    var remaining = Math.round(total - fixedSum);
+    var remaining = roundCents(total - fixedSum);
     el.textContent = '$' + remaining.toLocaleString();
     el.classList.toggle('mismatch', autoCount === 0 && remaining !== 0);
   }
@@ -1873,13 +1878,13 @@
           return;
         }
         banner.className = 'banner show success';
-        banner.textContent = '✅ ' + res.note + '，目前餘額 $' + Math.round(res.newBalance).toLocaleString();
+        banner.textContent = '✅ ' + res.note + '，目前餘額 $' + roundCents(res.newBalance).toLocaleString();
 
         document.getElementById(amountFieldId).value = '';
         if (action === 'purchase') document.getElementById('purchaseNote').value = '';
 
-        document.getElementById('fundPageBalanceDisplay').textContent = '$' + Math.round(res.newBalance).toLocaleString();
-        document.getElementById('fundBalanceDisplay').textContent = '$' + Math.round(res.newBalance).toLocaleString();
+        document.getElementById('fundPageBalanceDisplay').textContent = '$' + roundCents(res.newBalance).toLocaleString();
+        document.getElementById('fundBalanceDisplay').textContent = '$' + roundCents(res.newBalance).toLocaleString();
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;
@@ -1889,7 +1894,7 @@
 
   function refreshFundPageBalance() {
     callApi('getFundBalance').then(function (res) {
-      document.getElementById('fundPageBalanceDisplay').textContent = '$' + Math.round(res.balance || 0).toLocaleString();
+      document.getElementById('fundPageBalanceDisplay').textContent = '$' + roundCents(res.balance || 0).toLocaleString();
     });
   }
 
@@ -2115,7 +2120,7 @@
 
     var right = document.createElement('span');
     right.className = 'net';
-    right.textContent = m.net === 0 ? '無未結款項' : (m.net > 0 ? '欠款 $' + Math.round(m.net).toLocaleString() : '待收回 $' + Math.round(Math.abs(m.net)).toLocaleString());
+    right.textContent = m.net === 0 ? '無未結款項' : (m.net > 0 ? '欠款 $' + roundCents(m.net).toLocaleString() : '待收回 $' + roundCents(Math.abs(m.net)).toLocaleString());
     rightWrap.appendChild(right);
 
     if (!m.bound && !myBoundName) {
@@ -2326,7 +2331,7 @@
       var total = a.type === 'badminton' ? a.totalCost : a.totalAmount;
       var amt = document.createElement('span');
       amt.style.cssText = 'font-weight:700;font-size:14px;color:var(--ink);';
-      amt.textContent = '$' + Math.round(total || 0).toLocaleString();
+      amt.textContent = '$' + roundCents(total || 0).toLocaleString();
       var chevron = document.createElement('span');
       chevron.className = 'chevron';
       chevron.textContent = '›';
@@ -2352,7 +2357,7 @@
 
         var pAmt = document.createElement('span');
         pAmt.className = 'amt';
-        pAmt.textContent = '$' + Math.round(p.amount || 0).toLocaleString();
+        pAmt.textContent = '$' + roundCents(p.amount || 0).toLocaleString();
 
         row.appendChild(pLeft);
         row.appendChild(pAmt);
@@ -2859,15 +2864,15 @@
     var suggestions = [];
     var i = 0, j = 0;
     while (i < debtors.length && j < creditors.length) {
-      var amt = Math.round(Math.min(debtors[i].amount, creditors[j].amount) * 100) / 100;
+      var amt = roundCents(Math.min(debtors[i].amount, creditors[j].amount));
       suggestions.push({
         from: debtors[i].name, to: creditors[j].name, amount: amt,
         fromRowNumber: debtors[i].rowNumber, toRowNumber: creditors[j].rowNumber,
         fromReceived: debtors[i].received,
         fromAvatar: debtors[i].avatar, toAvatar: creditors[j].avatar
       });
-      debtors[i].amount = Math.round((debtors[i].amount - amt) * 100) / 100;
-      creditors[j].amount = Math.round((creditors[j].amount - amt) * 100) / 100;
+      debtors[i].amount = roundCents(debtors[i].amount - amt);
+      creditors[j].amount = roundCents(creditors[j].amount - amt);
       if (debtors[i].amount <= 0) i++;
       if (creditors[j].amount <= 0) j++;
     }
@@ -2917,7 +2922,7 @@
 
         var amountSpan = document.createElement('span');
         amountSpan.className = 'amount';
-        amountSpan.textContent = '$' + Math.round(f.amount).toLocaleString();
+        amountSpan.textContent = '$' + roundCents(f.amount).toLocaleString();
 
         var btn = document.createElement('button');
         btn.className = 'settle-btn';
@@ -2946,7 +2951,7 @@
           return;
         }
         banner.className = 'banner show success';
-        banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + Math.round(amount).toLocaleString() + '」已結清';
+        banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已結清';
         refreshSettlementList();
       }).catch(function (err) {
         banner.className = 'banner show error';
@@ -2966,7 +2971,7 @@
           return;
         }
         banner.className = 'banner show success';
-        banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + Math.round(amount).toLocaleString() + '」已結清';
+        banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已結清';
         refreshSettlementList();
       }).catch(function (err) {
         banner.className = 'banner show error';
@@ -3061,12 +3066,12 @@
       }
     });
     var remaining = totalAmount - fixedSum;
-    var amountPerAuto = autoPeople.length > 0 ? Math.round(remaining / autoPeople.length) : 0;
+    var amountPerAuto = autoPeople.length > 0 ? roundCents(remaining / autoPeople.length) : 0;
     return fixedPeople.concat(autoPeople.map(function (p) { return { name: p.name, amount: amountPerAuto }; }));
   }
 
   function computeOutingPreview(payload) {
-    var totalAmount = Math.round(payload.payerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0));
+    var totalAmount = roundCents(payload.payerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0));
     var participants = parseSplitEntriesClient(payload.participants, totalAmount);
     return { totalAmount: totalAmount, participants: participants };
   }
@@ -3092,14 +3097,14 @@
     }
 
     // 送出前先在本地驗證金額對不對得起來，避免等後端回報錯誤時樂觀 UI 已經跳回首頁、清空表單
-    var totalAmount = Math.round(outingPayerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0));
+    var totalAmount = roundCents(outingPayerEntries.reduce(function (s, e) { return s + Number(e.amount); }, 0));
     var fixedSum = 0;
     var autoCount = 0;
     participants.forEach(function (p) {
       if (p.amount !== '' && p.amount !== null && p.amount !== undefined) fixedSum += Number(p.amount);
       else autoCount++;
     });
-    fixedSum = Math.round(fixedSum);
+    fixedSum = roundCents(fixedSum);
     var remaining = totalAmount - fixedSum;
     if (autoCount === 0 && remaining !== 0) {
       var b3 = document.getElementById('outingBanner');
@@ -3126,7 +3131,7 @@
     // 就算手滑點兩下，第二次呼叫會在最上面的驗證直接被「請至少新增一筆墊款紀錄」擋下，不會真的送出兩筆。
     var preview = computeOutingPreview(payload);
     var detailLines = preview.participants.map(function (p) { return p.name + '：$' + p.amount; });
-    detailLines.push('墊款：' + payload.payerEntries.map(function (e) { return e.payerName + ' $' + Math.round(e.amount); }).join('、'));
+    detailLines.push('墊款：' + payload.payerEntries.map(function (e) { return e.payerName + ' $' + roundCents(e.amount); }).join('、'));
 
     var pendingId = 'p' + Date.now();
     renderRecentActivity('🧾 ' + (payload.activityName || '（未命名活動）'), preview.totalAmount, detailLines, pendingId);
@@ -3158,8 +3163,8 @@
 
     var attendees = payload.attendees.map(function (a) {
       var hours = Number(a.hours);
-      var fixedShare = Math.round(hours * pricePerPersonHourFixed);
-      var fundShare = Math.round(hours * fundRatePerHr);
+      var fixedShare = roundCents(hours * pricePerPersonHourFixed);
+      var fundShare = roundCents(hours * fundRatePerHr);
       return { name: a.name, hours: hours, fixedShare: fixedShare, fundShare: fundShare, amount: fixedShare + fundShare };
     });
     var totalCost = attendees.reduce(function (s, a) { return s + a.amount; }, 0);
@@ -3205,7 +3210,7 @@
       var payerTotals = {};
       payload.venueEntries.concat(payload.selfBallEntries.map(function (e) { return { ratePerHr: e.price, hours: e.count, payerName: e.payerName }; }))
         .forEach(function (e) { payerTotals[e.payerName] = (payerTotals[e.payerName] || 0) + Number(e.ratePerHr) * Number(e.hours); });
-      detailLines.push('墊款：' + Object.keys(payerTotals).map(function (name) { return name + ' $' + Math.round(payerTotals[name]); }).join('、'));
+      detailLines.push('墊款：' + Object.keys(payerTotals).map(function (name) { return name + ' $' + roundCents(payerTotals[name]); }).join('、'));
     }
 
     var pendingId = 'p' + Date.now();
@@ -3229,7 +3234,7 @@
       if (!res.success) { markRecentActivityFailed(pendingId, res.error); return; }
       if (res.fundWarning) { markRecentActivityFailed(pendingId, res.fundWarning); } else { markRecentActivityConfirmed(pendingId); }
       callApi('getFundBalance').then(function (fundRes) {
-        document.getElementById('fundBalanceDisplay').textContent = '$' + Math.round(fundRes.balance || 0).toLocaleString();
+        document.getElementById('fundBalanceDisplay').textContent = '$' + roundCents(fundRes.balance || 0).toLocaleString();
       });
     }).catch(function (err) {
       markRecentActivityFailed(pendingId, err.message);
@@ -3243,7 +3248,7 @@
     document.getElementById('venueRateInput').value = settings.venueFeeDefault || '';
     document.getElementById('fundRate').value = settings.fundRateDefault || '';
 
-    document.getElementById('fundBalanceDisplay').textContent = '$' + Math.round(res.fundBalance || 0).toLocaleString();
+    document.getElementById('fundBalanceDisplay').textContent = '$' + roundCents(res.fundBalance || 0).toLocaleString();
 
     populatePayerSelects();
     renderMemberList('attendeeList', 'attendee');

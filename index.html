@@ -3003,14 +3003,14 @@
     }
   }
 
-  // 只有從群組/多人聊天室內開啟 LIFF 時才能用使用者自己的身份發訊息；
-  // 不是這個情境（例如從跟 bot 的私訊、或電腦版 LINE 一律走外部瀏覽器打開）就沒有群組通知，
-  // 但結清本身依然會成功
+  // 手機 LINE App 內開啟才有用（電腦版一律走外部瀏覽器，這個 API 就不存在）；
+  // group/room 會送進那個聊天室，utou（跟 bot 的私訊）會送進你自己跟 bot 的對話——
+  // 剛好也可以拿私訊當測試環境，不會打擾到群組其他人
   function canAnnounceInChat() {
     if (typeof liff === 'undefined' || typeof liff.isInClient !== 'function' || !liff.isInClient()) return false;
     if (typeof liff.getContext !== 'function') return false;
     var ctx = liff.getContext();
-    return !!ctx && (ctx.type === 'group' || ctx.type === 'room');
+    return !!ctx && (ctx.type === 'group' || ctx.type === 'room' || ctx.type === 'utou');
   }
 
   // 有頭像就疊一顆大頭貼在名字上面，沒有（例如「羽球基金」這種非成員文字）就只顯示文字

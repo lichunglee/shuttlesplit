@@ -406,16 +406,22 @@
     position: relative;
     overflow: hidden;
   }
+  .wf-center-line {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line);
+  }
   .wf-bar {
     position: absolute;
     top: 0;
-    left: 0;
     height: 100%;
-    border-radius: 5px;
-    min-width: 3px;
+    min-width: 2px;
   }
-  .wf-bar.owe { background: var(--error); }
-  .wf-bar.receive { background: var(--court-green); }
+  .wf-bar.owe { right: 50%; border-radius: 5px 0 0 5px; background: var(--error); }
+  .wf-bar.receive { left: 50%; border-radius: 0 5px 5px 0; background: var(--court-green); }
   .wf-amount {
     flex-shrink: 0;
     font-size: 14px;
@@ -2885,9 +2891,12 @@
 
     var track = document.createElement('div');
     track.className = 'wf-bar-track';
+    var centerLine = document.createElement('div');
+    centerLine.className = 'wf-center-line';
     var bar = document.createElement('div');
     bar.className = 'wf-bar ' + type;
-    bar.style.width = Math.max(2, (amount / maxAmount) * 100) + '%';
+    bar.style.width = Math.max(2, (amount / maxAmount) * 50) + '%';
+    track.appendChild(centerLine);
     track.appendChild(bar);
 
     row.appendChild(top);

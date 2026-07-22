@@ -996,12 +996,6 @@
       <p class="hint">把所有人目前的帳目存快照、全部歸零，開啟新一季。此動作無法復原，請確認大家都已經處理完這季的款項再執行。</p>
       <button type="button" class="primary-btn" style="background:var(--error);" onclick="startQuarterlySettlement(this)">季度結算</button>
     </section>
-
-    <section style="border-color:#999;">
-      <h2 style="color:#999;">🧪 測試：群組通知（不動帳目，測完就刪）</h2>
-      <p class="hint">只測試 liff.sendMessages() 有沒有用你的身份貼進聊天室，完全不會呼叫後端、不會動任何人的帳目數字。</p>
-      <button type="button" class="primary-btn" style="background:#999;" onclick="testAnnounceInChat(this)">測試通知</button>
-    </section>
   </main>
 </div>
 
@@ -3010,25 +3004,13 @@
   }
 
   // 只有從群組/多人聊天室內開啟 LIFF 時才能用使用者自己的身份發訊息；
-  // 不是這個情境（例如從跟 bot 的私訊、或外部瀏覽器打開）就交給後端用 push API 補推
+  // 不是這個情境（例如從跟 bot 的私訊、或電腦版 LINE 一律走外部瀏覽器打開）就沒有群組通知，
+  // 但結清本身依然會成功
   function canAnnounceInChat() {
     if (typeof liff === 'undefined' || typeof liff.isInClient !== 'function' || !liff.isInClient()) return false;
     if (typeof liff.getContext !== 'function') return false;
     var ctx = liff.getContext();
     return !!ctx && (ctx.type === 'group' || ctx.type === 'room');
-  }
-
-  // 暫時性除錯用：把 liff.isInClient()/liff.getContext() 的實際值印出來，
-  // 方便在沒有 devtools 的手機環境判斷 canAnnounceInChat() 為什麼會失敗
-  function getLiffDebugInfo() {
-    try {
-      if (typeof liff === 'undefined') return 'liff未載入';
-      var inClient = (typeof liff.isInClient === 'function') ? liff.isInClient() : '無isInClient';
-      var ctx = (typeof liff.getContext === 'function') ? liff.getContext() : null;
-      return 'inClient=' + inClient + ' ctx=' + JSON.stringify(ctx);
-    } catch (e) {
-      return 'debug取得失敗:' + e.message;
-    }
   }
 
   function buildSettleFlexMessageClient(fromLabel, toLabel, amount) {
@@ -3057,31 +3039,10 @@
   }
 
   // 用使用者自己的身份把結清結果貼回聊天室，不吃 LINE Messaging API 的月推播額度；
-  // 回傳 true/false（除錯用，之後穩定了可以拿掉，失敗不影響結清本身已經成功的結果）
+  // 送失敗（例如不在群組情境、或 scope 沒開）就靜靜放棄，不影響結清本身已經成功的結果
   function announceSettleInChat(fromLabel, toLabel, amount) {
-    return liff.sendMessages([buildSettleFlexMessageClient(fromLabel, toLabel, amount)]).then(function () {
-      return { ok: true };
-    }).catch(function (err) {
+    return liff.sendMessages([buildSettleFlexMessageClient(fromLabel, toLabel, amount)]).catch(function (err) {
       console.log('liff.sendMessages 失敗：', err);
-      return { ok: false, error: (err && err.message) || JSON.stringify(err) };
-    });
-  }
-
-  // 純測試用：只測 liff.sendMessages() 這條路，完全不呼叫後端、不動任何帳目資料，測完記得整段刪掉
-  function testAnnounceInChat(btn) {
-    var banner = document.getElementById('settlementBanner');
-    banner.className = 'banner show';
-    var announceInChat = canAnnounceInChat();
-    banner.textContent = '[debug: ' + getLiffDebugInfo() + ']';
-    if (!announceInChat) {
-      banner.textContent += ' | canAnnounceInChat() = false，不會嘗試 sendMessages';
-      return;
-    }
-    withBusyButton(btn, '測試中…', function () {
-      return announceSettleInChat('測試甲', '測試乙', 1).then(function (r) {
-        banner.className = r.ok ? 'banner show success' : 'banner show error';
-        banner.textContent += r.ok ? ' | sendMessages 成功' : (' | sendMessages 失敗: ' + r.error);
-      });
     });
   }
 
@@ -3089,24 +3050,17 @@
     if (!confirm('確定「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已經轉帳完成，要標記為結清嗎？')) return;
     var banner = document.getElementById('settlementBanner');
     banner.className = 'banner';
-    var announceInChat = canAnnounceInChat();
     withBusyButton(btn, '結清中…', function () {
-      return callApi('settlePair', { fromName: fromName, toName: toName, amount: amount, skipPush: announceInChat }).then(function (res) {
+      return callApi('settlePair', { fromName: fromName, toName: toName, amount: amount }).then(function (res) {
         if (!res.success) {
           banner.className = 'banner show error';
           banner.textContent = res.error;
           return;
         }
         banner.className = 'banner show success';
-        banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已結清 [debug: ' + getLiffDebugInfo() + ']';
+        banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已結清';
         refreshSettlementList();
-        if (announceInChat) {
-          announceSettleInChat(fromName, toName, roundCents(amount)).then(function (r) {
-            banner.textContent += r.ok ? ' | sendMessages 成功' : (' | sendMessages 失敗: ' + r.error);
-          });
-        } else {
-          banner.textContent += ' | 未嘗試 sendMessages（canAnnounceInChat=false）';
-        }
+        if (canAnnounceInChat()) announceSettleInChat(fromName, toName, roundCents(amount));
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;
@@ -3118,24 +3072,17 @@
     if (!confirm('確定「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已經轉帳完成，要標記為結清嗎？')) return;
     var banner = document.getElementById('settlementBanner');
     banner.className = 'banner';
-    var announceInChat = canAnnounceInChat();
     withBusyButton(btn, '結清中…', function () {
-      return callApi('settleFundShare', { name: name, amount: amount, skipPush: announceInChat }).then(function (res) {
+      return callApi('settleFundShare', { name: name, amount: amount }).then(function (res) {
         if (!res.success) {
           banner.className = 'banner show error';
           banner.textContent = res.error;
           return;
         }
         banner.className = 'banner show success';
-        banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已結清 [debug: ' + getLiffDebugInfo() + ']';
+        banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已結清';
         refreshSettlementList();
-        if (announceInChat) {
-          announceSettleInChat(name, '💰 羽球基金', roundCents(amount)).then(function (r) {
-            banner.textContent += r.ok ? ' | sendMessages 成功' : (' | sendMessages 失敗: ' + r.error);
-          });
-        } else {
-          banner.textContent += ' | 未嘗試 sendMessages（canAnnounceInChat=false）';
-        }
+        if (canAnnounceInChat()) announceSettleInChat(name, '💰 羽球基金', roundCents(amount));
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;

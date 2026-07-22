@@ -375,6 +375,55 @@
     overflow: hidden;
   }
 
+  .wf-row {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .wf-row:last-child { border-bottom: none; }
+  .wf-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .wf-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .wf-bar-track {
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    background: var(--paper);
+    position: relative;
+    overflow: hidden;
+  }
+  .wf-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: 5px;
+    min-width: 3px;
+  }
+  .wf-bar.owe { background: var(--error); }
+  .wf-bar.receive { background: var(--court-green); }
+  .wf-amount {
+    flex-shrink: 0;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .wf-amount.owe { color: var(--error); }
+  .wf-amount.receive { color: var(--court-green); }
+
   .suggestion-row {
     display: flex;
     align-items: center;
@@ -2794,33 +2843,35 @@
     var card = document.createElement('div');
     card.className = 'summary-card';
 
-    owe.forEach(function (item) {
-      card.appendChild(buildSummaryRow(item.name, item.amount, 'owe', '-$', item.avatar));
+    // 長條寬度都用同一把尺（欠款、待收全部人裡金額最大的那筆）換算,兩邊才能互相比較大小
+    var maxAmount = Math.max.apply(null, owe.concat(receive).map(function (item) { return item.amount; }).concat([1]));
+
+    owe.slice().sort(function (a, b) { return b.amount - a.amount; }).forEach(function (item) {
+      card.appendChild(buildSummaryRow(item.name, item.amount, 'owe', '-$', item.avatar, maxAmount));
     });
-    receive.forEach(function (item) {
-      card.appendChild(buildSummaryRow(item.name, item.amount, 'receive', '+$', item.avatar));
+    receive.slice().sort(function (a, b) { return b.amount - a.amount; }).forEach(function (item) {
+      card.appendChild(buildSummaryRow(item.name, item.amount, 'receive', '+$', item.avatar, maxAmount));
     });
 
     container.appendChild(card);
   }
 
-  function buildSummaryRow(name, amount, type, prefix, avatar) {
+  function buildSummaryRow(name, amount, type, prefix, avatar, maxAmount) {
     var row = document.createElement('div');
-    row.className = 'summary-row';
+    row.className = 'wf-row';
 
-    var left = document.createElement('div');
-    left.style.cssText = 'display:flex;align-items:center;gap:8px;';
-    left.appendChild(buildAvatarEl(name, avatar, 'sm'));
+    var top = document.createElement('div');
+    top.className = 'wf-top';
+
+    var nameDiv = document.createElement('div');
+    nameDiv.className = 'wf-name';
+    nameDiv.appendChild(buildAvatarEl(name, avatar, 'sm'));
     var nameSpan = document.createElement('span');
-    nameSpan.className = 'name';
     nameSpan.textContent = name;
-    left.appendChild(nameSpan);
-
-    var right = document.createElement('div');
-    right.style.cssText = 'display:flex;align-items:center;gap:8px;';
+    nameDiv.appendChild(nameSpan);
 
     var amountSpan = document.createElement('span');
-    amountSpan.className = 'amount ' + type;
+    amountSpan.className = 'wf-amount ' + type;
     amountSpan.textContent = prefix + amount.toLocaleString();
 
     var btn = document.createElement('button');
@@ -2828,10 +2879,19 @@
     btn.textContent = '結清';
     btn.onclick = function () { settleMemberAction(name, btn); };
 
-    right.appendChild(amountSpan);
-    right.appendChild(btn);
-    row.appendChild(left);
-    row.appendChild(right);
+    top.appendChild(nameDiv);
+    top.appendChild(amountSpan);
+    top.appendChild(btn);
+
+    var track = document.createElement('div');
+    track.className = 'wf-bar-track';
+    var bar = document.createElement('div');
+    bar.className = 'wf-bar ' + type;
+    bar.style.width = Math.max(2, (amount / maxAmount) * 100) + '%';
+    track.appendChild(bar);
+
+    row.appendChild(top);
+    row.appendChild(track);
     return row;
   }
 

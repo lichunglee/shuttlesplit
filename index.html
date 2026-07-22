@@ -3012,6 +3012,19 @@
     return !!ctx && (ctx.type === 'group' || ctx.type === 'room');
   }
 
+  // 暫時性除錯用：把 liff.isInClient()/liff.getContext() 的實際值印出來，
+  // 方便在沒有 devtools 的手機環境判斷 canAnnounceInChat() 為什麼會失敗
+  function getLiffDebugInfo() {
+    try {
+      if (typeof liff === 'undefined') return 'liff未載入';
+      var inClient = (typeof liff.isInClient === 'function') ? liff.isInClient() : '無isInClient';
+      var ctx = (typeof liff.getContext === 'function') ? liff.getContext() : null;
+      return 'inClient=' + inClient + ' ctx=' + JSON.stringify(ctx);
+    } catch (e) {
+      return 'debug取得失敗:' + e.message;
+    }
+  }
+
   function buildSettleFlexMessageClient(fromLabel, toLabel, amount) {
     return {
       type: 'flex',
@@ -3038,10 +3051,13 @@
   }
 
   // 用使用者自己的身份把結清結果貼回聊天室，不吃 LINE Messaging API 的月推播額度；
-  // 送失敗（例如 scope 沒開）就靜靜放棄，不影響結清本身已經成功的結果
+  // 回傳 true/false（除錯用，之後穩定了可以拿掉，失敗不影響結清本身已經成功的結果）
   function announceSettleInChat(fromLabel, toLabel, amount) {
-    return liff.sendMessages([buildSettleFlexMessageClient(fromLabel, toLabel, amount)]).catch(function (err) {
+    return liff.sendMessages([buildSettleFlexMessageClient(fromLabel, toLabel, amount)]).then(function () {
+      return { ok: true };
+    }).catch(function (err) {
       console.log('liff.sendMessages 失敗：', err);
+      return { ok: false, error: (err && err.message) || JSON.stringify(err) };
     });
   }
 
@@ -3058,9 +3074,15 @@
           return;
         }
         banner.className = 'banner show success';
-        banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已結清';
+        banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已結清 [debug: ' + getLiffDebugInfo() + ']';
         refreshSettlementList();
-        if (announceInChat) announceSettleInChat(fromName, toName, roundCents(amount));
+        if (announceInChat) {
+          announceSettleInChat(fromName, toName, roundCents(amount)).then(function (r) {
+            banner.textContent += r.ok ? ' | sendMessages 成功' : (' | sendMessages 失敗: ' + r.error);
+          });
+        } else {
+          banner.textContent += ' | 未嘗試 sendMessages（canAnnounceInChat=false）';
+        }
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;
@@ -3081,9 +3103,15 @@
           return;
         }
         banner.className = 'banner show success';
-        banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已結清';
+        banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已結清 [debug: ' + getLiffDebugInfo() + ']';
         refreshSettlementList();
-        if (announceInChat) announceSettleInChat(name, '💰 羽球基金', roundCents(amount));
+        if (announceInChat) {
+          announceSettleInChat(name, '💰 羽球基金', roundCents(amount)).then(function (r) {
+            banner.textContent += r.ok ? ' | sendMessages 成功' : (' | sendMessages 失敗: ' + r.error);
+          });
+        } else {
+          banner.textContent += ' | 未嘗試 sendMessages（canAnnounceInChat=false）';
+        }
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;

@@ -3013,15 +3013,18 @@
     return !!ctx && (ctx.type === 'group' || ctx.type === 'room' || ctx.type === 'utou');
   }
 
-  // 有頭像貼真實照片；沒有的話（例如「羽球基金」這種非成員文字，或還沒綁定頭像的成員）
-  // 用名字/emoji第一個字元疊一顆同尺寸的色塊當佔位大頭貼，兩邊高度才會整齊
+  // 有頭像貼真實照片、裁成圓形；沒有的話（例如「羽球基金」這種非成員文字，或還沒綁定頭像的成員）
+  // 用名字/emoji第一個字元疊一顆同尺寸的圓形色塊當佔位大頭貼，兩邊高度才會整齊
   function buildPersonBox(label, avatarUrl) {
     var avatarBox;
     if (avatarUrl) {
-      avatarBox = { type: 'image', url: avatarUrl, size: '48px', aspectMode: 'cover', aspectRatio: '1:1', align: 'center' };
+      avatarBox = {
+        type: 'box', layout: 'vertical', width: '48px', height: '48px', cornerRadius: '24px',
+        contents: [{ type: 'image', url: avatarUrl, size: 'full', aspectMode: 'cover', gravity: 'center' }]
+      };
     } else {
       avatarBox = {
-        type: 'box', layout: 'vertical', width: '48px', height: '48px', cornerRadius: 'md',
+        type: 'box', layout: 'vertical', width: '48px', height: '48px', cornerRadius: '24px',
         backgroundColor: '#D4A24C', justifyContent: 'center', alignItems: 'center',
         contents: [{ type: 'text', text: (label || '?').charAt(0), color: '#FFFFFF', weight: 'bold', size: 'md', align: 'center', gravity: 'center' }]
       };
@@ -3042,14 +3045,21 @@
       altText: '✅ 「' + fromLabel + ' → ' + toLabel + ' $' + amount.toLocaleString() + '」已結清',
       contents: {
         type: 'bubble',
-        header: {
-          type: 'box', layout: 'vertical', backgroundColor: '#1B4D3E', paddingAll: 'md',
-          contents: [{ type: 'text', text: '✅ 已結清', color: '#FFFFFF', weight: 'bold', size: 'md' }]
-        },
         body: {
           type: 'box', layout: 'vertical', spacing: 'md', paddingAll: 'lg',
           contents: [
-            { type: 'text', text: '$' + amount.toLocaleString(), weight: 'bold', size: 'xxl', color: '#1B4D3E', align: 'center' },
+            {
+              type: 'box', layout: 'horizontal', spacing: 'sm', alignItems: 'center',
+              contents: [
+                {
+                  type: 'box', layout: 'vertical', width: '28px', height: '28px', cornerRadius: 'sm',
+                  backgroundColor: '#1B4D3E', justifyContent: 'center', alignItems: 'center',
+                  contents: [{ type: 'text', text: '✓', color: '#FFFFFF', weight: 'bold', size: 'sm', align: 'center', gravity: 'center' }]
+                },
+                { type: 'text', text: '結清', weight: 'bold', size: 'md', color: '#1B4D3E' }
+              ]
+            },
+            { type: 'text', text: '$' + amount.toLocaleString(), weight: 'bold', size: 'xxl', color: '#1B4D3E' },
             { type: 'separator', margin: 'sm' },
             {
               type: 'box', layout: 'horizontal', margin: 'md', alignItems: 'center',

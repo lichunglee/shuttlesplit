@@ -3083,11 +3083,8 @@
   // 用使用者自己的身份把結清結果貼回聊天室，不吃 LINE Messaging API 的月推播額度；
   // 送失敗（例如不在群組情境、或 scope 沒開）就靜靜放棄，不影響結清本身已經成功的結果
   function announceSettleInChat(fromLabel, toLabel, amount, fromAvatar, toAvatar) {
-    return liff.sendMessages([buildSettleFlexMessageClient(fromLabel, toLabel, amount, fromAvatar, toAvatar)]).then(function () {
-      return { ok: true };
-    }).catch(function (err) {
+    return liff.sendMessages([buildSettleFlexMessageClient(fromLabel, toLabel, amount, fromAvatar, toAvatar)]).catch(function (err) {
       console.log('liff.sendMessages 失敗：', err);
-      return { ok: false, error: (err && err.message) || JSON.stringify(err) };
     });
   }
 
@@ -3105,12 +3102,7 @@
         banner.className = 'banner show success';
         banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已結清';
         refreshSettlementList();
-        if (canAnnounceInChat()) {
-          banner.textContent += ' [頭像: from=' + (fromAvatar ? '有' : '無') + ' to=' + (toAvatar ? '有' : '無') + ']';
-          announceSettleInChat(fromName, toName, roundCents(amount), fromAvatar, toAvatar).then(function (r) {
-            banner.textContent += r.ok ? ' | sendMessages 成功' : (' | sendMessages 失敗: ' + r.error);
-          });
-        }
+        if (canAnnounceInChat()) announceSettleInChat(fromName, toName, roundCents(amount), fromAvatar, toAvatar);
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;
@@ -3132,12 +3124,7 @@
         banner.className = 'banner show success';
         banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已結清';
         refreshSettlementList();
-        if (canAnnounceInChat()) {
-          banner.textContent += ' [頭像: from=' + (avatar ? '有' : '無') + ']';
-          announceSettleInChat(name, '💰 羽球基金', roundCents(amount), avatar, '').then(function (r) {
-            banner.textContent += r.ok ? ' | sendMessages 成功' : (' | sendMessages 失敗: ' + r.error);
-          });
-        }
+        if (canAnnounceInChat()) announceSettleInChat(name, '💰 羽球基金', roundCents(amount), avatar, '');
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;

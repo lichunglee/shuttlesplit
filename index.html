@@ -2965,7 +2965,7 @@
       var btn = document.createElement('button');
       btn.className = 'settle-btn';
       btn.textContent = '結清';
-      btn.onclick = function () { settlePairAction(s.from, s.to, s.amount, row, btn); };
+      btn.onclick = function () { settlePairAction(s.from, s.to, s.amount, row, btn, s.fromAvatar, s.toAvatar); };
 
       row.appendChild(namesDiv);
       var right = document.createElement('div');
@@ -2990,7 +2990,7 @@
         var btn = document.createElement('button');
         btn.className = 'settle-btn';
         btn.textContent = '結清';
-        btn.onclick = function () { settleFundShareAction(f.name, f.amount, row, btn); };
+        btn.onclick = function () { settleFundShareAction(f.name, f.amount, row, btn, f.avatar); };
 
         row.appendChild(namesDiv);
         var right = document.createElement('div');
@@ -3013,7 +3013,17 @@
     return !!ctx && (ctx.type === 'group' || ctx.type === 'room');
   }
 
-  function buildSettleFlexMessageClient(fromLabel, toLabel, amount) {
+  // 有頭像就疊一顆大頭貼在名字上面，沒有（例如「羽球基金」這種非成員文字）就只顯示文字
+  function buildPersonBox(label, avatarUrl) {
+    var contents = [];
+    if (avatarUrl) {
+      contents.push({ type: 'image', url: avatarUrl, size: '40px', aspectMode: 'cover', aspectRatio: '1:1', align: 'center' });
+    }
+    contents.push({ type: 'text', text: label, size: 'sm', wrap: true, align: 'center', margin: avatarUrl ? 'xs' : 'none' });
+    return { type: 'box', layout: 'vertical', flex: 3, contents: contents };
+  }
+
+  function buildSettleFlexMessageClient(fromLabel, toLabel, amount, fromAvatar, toAvatar) {
     return {
       type: 'flex',
       altText: '✅ 「' + fromLabel + ' → ' + toLabel + ' $' + amount.toLocaleString() + '」已結清',
@@ -3025,11 +3035,11 @@
             { type: 'text', text: '✅ 結清', weight: 'bold', size: 'sm', color: '#1B4D3E' },
             { type: 'text', text: '$' + amount.toLocaleString(), weight: 'bold', size: 'xxl', color: '#1B4D3E' },
             {
-              type: 'box', layout: 'horizontal', margin: 'md',
+              type: 'box', layout: 'horizontal', margin: 'md', alignItems: 'center',
               contents: [
-                { type: 'text', text: fromLabel, size: 'md', flex: 3, wrap: true },
+                buildPersonBox(fromLabel, fromAvatar),
                 { type: 'text', text: '→', size: 'md', flex: 1, align: 'center', color: '#D4A24C' },
-                { type: 'text', text: toLabel, size: 'md', flex: 3, wrap: true, align: 'end' }
+                buildPersonBox(toLabel, toAvatar)
               ]
             }
           ]
@@ -3040,13 +3050,13 @@
 
   // 用使用者自己的身份把結清結果貼回聊天室，不吃 LINE Messaging API 的月推播額度；
   // 送失敗（例如不在群組情境、或 scope 沒開）就靜靜放棄，不影響結清本身已經成功的結果
-  function announceSettleInChat(fromLabel, toLabel, amount) {
-    return liff.sendMessages([buildSettleFlexMessageClient(fromLabel, toLabel, amount)]).catch(function (err) {
+  function announceSettleInChat(fromLabel, toLabel, amount, fromAvatar, toAvatar) {
+    return liff.sendMessages([buildSettleFlexMessageClient(fromLabel, toLabel, amount, fromAvatar, toAvatar)]).catch(function (err) {
       console.log('liff.sendMessages 失敗：', err);
     });
   }
 
-  function settlePairAction(fromName, toName, amount, rowEl, btn) {
+  function settlePairAction(fromName, toName, amount, rowEl, btn, fromAvatar, toAvatar) {
     if (!confirm('確定「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已經轉帳完成，要標記為結清嗎？')) return;
     var banner = document.getElementById('settlementBanner');
     banner.className = 'banner';
@@ -3060,7 +3070,7 @@
         banner.className = 'banner show success';
         banner.textContent = '✅ 「' + fromName + ' → ' + toName + ' $' + roundCents(amount).toLocaleString() + '」已結清';
         refreshSettlementList();
-        if (canAnnounceInChat()) announceSettleInChat(fromName, toName, roundCents(amount));
+        if (canAnnounceInChat()) announceSettleInChat(fromName, toName, roundCents(amount), fromAvatar, toAvatar);
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;
@@ -3068,7 +3078,7 @@
     });
   }
 
-  function settleFundShareAction(name, amount, rowEl, btn) {
+  function settleFundShareAction(name, amount, rowEl, btn, avatar) {
     if (!confirm('確定「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已經轉帳完成，要標記為結清嗎？')) return;
     var banner = document.getElementById('settlementBanner');
     banner.className = 'banner';
@@ -3082,7 +3092,7 @@
         banner.className = 'banner show success';
         banner.textContent = '✅ 「' + name + ' → 羽球基金 $' + roundCents(amount).toLocaleString() + '」已結清';
         refreshSettlementList();
-        if (canAnnounceInChat()) announceSettleInChat(name, '💰 羽球基金', roundCents(amount));
+        if (canAnnounceInChat()) announceSettleInChat(name, '💰 羽球基金', roundCents(amount), avatar, '');
       }).catch(function (err) {
         banner.className = 'banner show error';
         banner.textContent = '系統錯誤：' + err.message;

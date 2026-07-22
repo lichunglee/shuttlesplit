@@ -996,6 +996,12 @@
       <p class="hint">把所有人目前的帳目存快照、全部歸零，開啟新一季。此動作無法復原，請確認大家都已經處理完這季的款項再執行。</p>
       <button type="button" class="primary-btn" style="background:var(--error);" onclick="startQuarterlySettlement(this)">季度結算</button>
     </section>
+
+    <section style="border-color:#999;">
+      <h2 style="color:#999;">🧪 測試：群組通知（不動帳目，測完就刪）</h2>
+      <p class="hint">只測試 liff.sendMessages() 有沒有用你的身份貼進聊天室，完全不會呼叫後端、不會動任何人的帳目數字。</p>
+      <button type="button" class="primary-btn" style="background:#999;" onclick="testAnnounceInChat(this)">測試通知</button>
+    </section>
   </main>
 </div>
 
@@ -3058,6 +3064,24 @@
     }).catch(function (err) {
       console.log('liff.sendMessages 失敗：', err);
       return { ok: false, error: (err && err.message) || JSON.stringify(err) };
+    });
+  }
+
+  // 純測試用：只測 liff.sendMessages() 這條路，完全不呼叫後端、不動任何帳目資料，測完記得整段刪掉
+  function testAnnounceInChat(btn) {
+    var banner = document.getElementById('settlementBanner');
+    banner.className = 'banner show';
+    var announceInChat = canAnnounceInChat();
+    banner.textContent = '[debug: ' + getLiffDebugInfo() + ']';
+    if (!announceInChat) {
+      banner.textContent += ' | canAnnounceInChat() = false，不會嘗試 sendMessages';
+      return;
+    }
+    withBusyButton(btn, '測試中…', function () {
+      return announceSettleInChat('測試甲', '測試乙', 1).then(function (r) {
+        banner.className = r.ok ? 'banner show success' : 'banner show error';
+        banner.textContent += r.ok ? ' | sendMessages 成功' : (' | sendMessages 失敗: ' + r.error);
+      });
     });
   }
 

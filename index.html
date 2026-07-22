@@ -2707,9 +2707,9 @@
   function renderHistorySuggestions(container, rows) {
     var owe = [], receive = [], fundOwed = [];
     rows.forEach(function (r) {
-      if (r.net > 0) owe.push({ name: r.name, amount: Math.round(r.net), rowNumber: r.rowNumber, received: r.received, avatar: r.avatar });
-      if (r.net < 0) receive.push({ name: r.name, amount: Math.round(Math.abs(r.net)), rowNumber: r.rowNumber, received: r.received, avatar: r.avatar });
-      if (r.fundOwed > 0) fundOwed.push({ name: r.name, amount: Math.round(r.fundOwed), rowNumber: r.rowNumber, received: r.received, avatar: r.avatar });
+      if (r.net > 0) owe.push({ name: r.name, amount: r.net, rowNumber: r.rowNumber, received: r.received, avatar: r.avatar });
+      if (r.net < 0) receive.push({ name: r.name, amount: Math.abs(r.net), rowNumber: r.rowNumber, received: r.received, avatar: r.avatar });
+      if (r.fundOwed > 0) fundOwed.push({ name: r.name, amount: r.fundOwed, rowNumber: r.rowNumber, received: r.received, avatar: r.avatar });
     });
 
     var suggestions = computeSettlementSuggestions(owe, receive);
@@ -2739,7 +2739,7 @@
 
     var amountSpan = document.createElement('span');
     amountSpan.className = 'amount';
-    amountSpan.textContent = '$' + Math.round(amount).toLocaleString();
+    amountSpan.textContent = '$' + amount.toLocaleString();
 
     var label = document.createElement('label');
     label.className = 'received-check';
@@ -2850,6 +2850,8 @@
 
   // 貪婪演算法：把欠款金額最大的人，跟該收金額最大的人配對，
   // 反覆抵銷到雙方其中一方歸零為止，藉此把轉帳次數壓到最低
+  // 金額算到分為止，每次抵銷後都捨到分，避免 JS 浮點數運算（例如 0.1+0.2）
+  // 累積出看不見的誤差,導致某個人的建議轉帳金額加起來對不上他實際的欠款/待收總額
   function computeSettlementSuggestions(owe, receive) {
     var debtors = owe.map(function (o) { return Object.assign({}, o); }).sort(function (a, b) { return b.amount - a.amount; });
     var creditors = receive.map(function (r) { return Object.assign({}, r); }).sort(function (a, b) { return b.amount - a.amount; });
@@ -2857,17 +2859,17 @@
     var suggestions = [];
     var i = 0, j = 0;
     while (i < debtors.length && j < creditors.length) {
-      var amt = Math.min(debtors[i].amount, creditors[j].amount);
+      var amt = Math.round(Math.min(debtors[i].amount, creditors[j].amount) * 100) / 100;
       suggestions.push({
         from: debtors[i].name, to: creditors[j].name, amount: amt,
         fromRowNumber: debtors[i].rowNumber, toRowNumber: creditors[j].rowNumber,
         fromReceived: debtors[i].received,
         fromAvatar: debtors[i].avatar, toAvatar: creditors[j].avatar
       });
-      debtors[i].amount -= amt;
-      creditors[j].amount -= amt;
-      if (debtors[i].amount === 0) i++;
-      if (creditors[j].amount === 0) j++;
+      debtors[i].amount = Math.round((debtors[i].amount - amt) * 100) / 100;
+      creditors[j].amount = Math.round((creditors[j].amount - amt) * 100) / 100;
+      if (debtors[i].amount <= 0) i++;
+      if (creditors[j].amount <= 0) j++;
     }
     return suggestions;
   }
@@ -2890,7 +2892,7 @@
 
       var amountSpan = document.createElement('span');
       amountSpan.className = 'amount';
-      amountSpan.textContent = '$' + Math.round(s.amount).toLocaleString();
+      amountSpan.textContent = '$' + s.amount.toLocaleString();
 
       var btn = document.createElement('button');
       btn.className = 'settle-btn';
